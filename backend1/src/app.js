@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
+
 const app = express();
 
 app.use(
@@ -18,7 +19,17 @@ app.use(cookieParser());
 
 //import routes
 import userRouter from "./routes/user.routes.js";
+import chatRouter from "./routes/chat.routes.js";
+import pdfRouter from "./routes/pdf.routes.js";
+import progressRouter from "./routes/progress.routes.js";
+
+import taskRoutes from "./routes/task.routes.js";
+
+app.use("/api/v1/tasks", taskRoutes);
+app.use("/api/v1/progress", progressRouter);
 app.use("/api/v1/users", userRouter);
+app.use("/api/v1/chat", chatRouter);
+app.use("/api/v1/pdf", pdfRouter);
 
 
 app.use((err, req, res, next) => {
