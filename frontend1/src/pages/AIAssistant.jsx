@@ -1,202 +1,294 @@
-import { useState } from "react";
+import { useState, useRef} from "react";
 
 function AIAssistant() {
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
+  const [chatId, setChatId] = useState(null);
+  const [pdfId, setPdfId] = useState(null);
+  const [pdfUploaded, setPdfUploaded] = useState(false);
+  const fileInputRef = useRef(null);
 
   const askAI = async () => {
-    if (!question.trim()) return;
-    setLoading(true);
-    setResponse("");
+  if (!question.trim()) return;
+  setLoading(true);
+  setResponse("");
 
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": "YOUR_ANTHROPIC_API_KEY_HERE", // 🔑 Replace with your key
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-calls": "true"
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: "You are an expert study assistant. Help students understand concepts, solve problems, and prepare for exams. Be clear, concise, and encouraging.",
-          messages: [{ role: "user", content: question }]
-        })
-      });
-      const data = await res.json();
-      setResponse(data.content?.[0]?.text || "No response received.");
-    } catch {
-      setResponse("Connection error. Please try again.");
+  try {
+    const res = await fetch("http://localhost:8000/api/v1/chat/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+      message: question,
+      chatId: chatId,
+      pdfId: pdfId
+      })
+    });
+    const data = await res.json();
+    setResponse(data.data?.reply || "No response received.");
+    if (!chatId) {
+      setChatId(data.data.chatId);
     }
+  } 
+  catch {
+    setResponse("Connection error. Please try again.");
+  }
 
-    setLoading(false);
-  };
+  setLoading(false);
+};
+
+
+const uploadPDF = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    const formData = new FormData();
+    formData.append("pdf", file);
+
+    const res = await fetch("http://localhost:8000/api/v1/pdf/upload", {
+      method: "POST",
+      body: formData,
+      credentials: "include"
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      setPdfId(data.pdfId);
+      setPdfUploaded(true);
+    } else {
+      alert("❌ Upload failed: " + data.message);
+    }
+  } catch {
+    alert("❌ Connection error during PDF upload.");
+  }
+};
+
+const handleUploadClick = () => {
+  fileInputRef.current.click();
+};
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=Lora:wght@400;500;600&display=swap');
 
-        .ai-root { font-family: 'Montserrat', sans-serif; background: #f7f4ee; min-height: 100vh; }
-        .ai-title { font-family: 'Cormorant Garamond', serif; }
-
-        .card {
-          background: rgba(255,253,247,0.92);
-          border: 1px solid rgba(184,151,90,0.22);
-          box-shadow: 0 8px 32px rgba(100,80,40,0.08), 0 2px 8px rgba(100,80,40,0.04), inset 0 1px 0 rgba(255,255,255,0.8);
-          border-radius: 18px;
+        .ai-root {
+          font-family: 'Nunito', sans-serif;
+          background: #f0f4f8;
+          min-height: 100vh;
         }
 
-        .card-top-line {
-          position: absolute; top: 0; left: 0; right: 0; height: 1px;
-          background: linear-gradient(90deg, transparent, #b8975a, transparent);
-          border-radius: 18px 18px 0 0;
+        .ai-root::before {
+          content: '';
+          position: fixed; inset: 0;
+          background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+          background-size: 28px 28px;
+          opacity: 0.45;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .ai-content { position: relative; z-index: 1; }
+
+        .display-font { font-family: 'Lora', serif; }
+
+        .study-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 4px 16px rgba(15,23,42,0.04);
+          position: relative;
+        }
+
+        .accent-blue::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 20px; right: 20px; height: 3px;
+          border-radius: 0 0 4px 4px;
+          background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        }
+        .accent-teal::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 20px; right: 20px; height: 3px;
+          border-radius: 0 0 4px 4px;
+          background: linear-gradient(90deg, #14b8a6, #2dd4bf);
         }
 
         .ai-textarea {
           width: 100%;
-          background: #f9f6ef;
-          border: 1px solid rgba(184,151,90,0.3);
-          border-radius: 14px;
-          padding: 16px 18px;
-          font-family: 'Montserrat', sans-serif;
+          background: #f8fafc;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 14px 16px;
+          font-family: 'Nunito', sans-serif;
           font-size: 13px;
-          color: #2c2416;
+          font-weight: 500;
+          color: #1e293b;
           resize: none;
-          transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
           outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+          box-sizing: border-box;
+          line-height: 1.6;
         }
         .ai-textarea:focus {
-          border-color: #b8975a;
-          box-shadow: 0 0 0 3px rgba(184,151,90,0.13);
-          background: #fffef9;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+          background: #ffffff;
         }
-        .ai-textarea::placeholder { color: #b8a07a; }
+        .ai-textarea::placeholder { color: #94a3b8; }
 
         .ask-btn {
-          background: linear-gradient(135deg, #b8975a, #8a6d38);
-          color: #fff8ee;
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          color: #ffffff;
           border: none;
-          border-radius: 12px;
-          padding: 12px 32px;
-          font-family: 'Montserrat', sans-serif;
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 3px;
-          text-transform: uppercase;
+          border-radius: 10px;
+          padding: 11px 28px;
+          font-family: 'Nunito', sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
           cursor: pointer;
           transition: transform 0.15s, box-shadow 0.2s;
+          box-shadow: 0 4px 12px rgba(59,130,246,0.3);
         }
-        .ask-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 8px 24px rgba(139,107,52,0.28);
-        }
+        .ask-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(59,130,246,0.35); }
         .ask-btn:active { transform: translateY(0); }
-        .ask-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .ask-btn:disabled { background: #93c5fd; box-shadow: none; cursor: not-allowed; transform: none; }
 
-        .divider {
-          height: 1px;
-          background: linear-gradient(90deg, transparent, #d4c4a0, transparent);
-          margin: 16px 0;
+        .quick-chip {
+          padding: 6px 14px;
+          border-radius: 999px;
+          border: 1.5px solid #e2e8f0;
+          background: #f8fafc;
+          color: #475569;
+          font-size: 12px;
+          font-family: 'Nunito', sans-serif;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .quick-chip:hover {
+          background: #eff6ff;
+          border-color: #93c5fd;
+          color: #1d4ed8;
         }
 
-        .ornament {
-          font-family: 'Cormorant Garamond', serif;
-          color: #b8975a; opacity: 0.5; letter-spacing: 6px; font-size: 14px;
+        .pill {
+          font-size: 11px; font-weight: 700; padding: 2px 10px;
+          border-radius: 999px; letter-spacing: 0.3px;
         }
+        .pill-blue { background: #dbeafe; color: #1d4ed8; }
+        .pill-teal { background: #ccfbf1; color: #0f766e; }
+        .pill-green { background: #dcfce7; color: #15803d; }
 
-        .badge {
-          font-size: 10px; padding: 2px 8px; border-radius: 20px;
-          font-family: 'Montserrat', sans-serif; letter-spacing: 1px;
-          background: rgba(184,151,90,0.12); color: #8a6d38;
-          border: 1px solid rgba(184,151,90,0.25);
-        }
+        .soft-divider { height: 1px; background: #f1f5f9; margin: 14px 0; }
 
         .response-text {
           font-size: 13px;
-          line-height: 1.85;
-          color: #4a3c28;
+          line-height: 1.9;
+          color: #334155;
           white-space: pre-wrap;
-          font-family: 'Montserrat', sans-serif;
+          font-family: 'Nunito', sans-serif;
+          font-weight: 500;
         }
 
         .dots span {
           display: inline-block;
-          width: 6px; height: 6px; border-radius: 50%;
-          background: #b8975a; margin: 0 2px;
+          width: 7px; height: 7px; border-radius: 50%;
+          background: #3b82f6; margin: 0 2px;
           animation: bounce 1.2s infinite ease-in-out;
         }
         .dots span:nth-child(2) { animation-delay: 0.2s; }
         .dots span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes bounce {
-          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-          40% { transform: translateY(-6px); opacity: 1; }
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.3; }
+          40% { transform: translateY(-7px); opacity: 1; }
         }
 
-        .fade-in { animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) both; }
-        .fade-in-delay { animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) 0.15s both; }
+        .greeting-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: #eff6ff; border: 1px solid #bfdbfe;
+          border-radius: 999px; padding: 4px 14px;
+          font-size: 11px; font-weight: 700; color: #1d4ed8; letter-spacing: 0.5px;
+        }
+
+        .fade-up { animation: fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(20px); }
+          from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-
-        .quick-chip {
-          padding: 6px 14px;
-          border-radius: 20px;
-          border: 1px solid rgba(184,151,90,0.3);
-          background: #f9f6ef;
-          color: #8a6d38;
-          font-size: 11px;
-          font-family: 'Montserrat', sans-serif;
-          cursor: pointer;
-          transition: background 0.2s, border-color 0.2s;
-          letter-spacing: 0.3px;
-        }
-        .quick-chip:hover { background: #f3ede0; border-color: rgba(184,151,90,0.5); }
       `}</style>
 
-      <div className="ai-root" style={{ background: "#f7f4ee" }}>
-
-        {/* Bg glows */}
-        <div className="fixed top-0 right-0 w-64 h-64 pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(184,151,90,0.07) 0%, transparent 70%)" }} />
-        <div className="fixed bottom-0 left-0 w-48 h-48 pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(139,107,52,0.05) 0%, transparent 70%)" }} />
-
-        <div className="max-w-2xl mx-auto px-6 py-10">
+      <div className="ai-root">
+        <div className="ai-content max-w-2xl mx-auto px-6 py-10">
 
           {/* Header */}
-          <div className="fade-in mb-10">
-            <div className="ornament mb-2">✦ ✦ ✦</div>
-            <h1 className="ai-title text-5xl font-light" style={{ color: "#2c2416", letterSpacing: "1px" }}>
+          <div className="fade-up mb-8">
+            <div className="greeting-badge mb-4">
+              <span>🤖</span> Powered by Claude
+            </div>
+            <h1 className="display-font text-4xl font-semibold" style={{ color: "#0f172a", letterSpacing: "-0.5px" }}>
               AI Study Assistant
             </h1>
-            <div style={{ width: "56px", height: "1px", background: "linear-gradient(90deg, #b8975a, transparent)", marginTop: "12px" }} />
-            <p className="mt-2 text-xs uppercase tracking-widest" style={{ color: "#9a8060", letterSpacing: "3px" }}>
-              Powered by Claude
+            <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
+              Ask anything — concepts, problems, revision, exam prep.
             </p>
           </div>
 
           {/* Input Card */}
-          <div className="card relative p-7 mb-5 fade-in">
-            <div className="card-top-line" />
-
+          <div className="study-card accent-blue p-6 mb-5 fade-up delay-1">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="ai-title text-2xl font-light" style={{ color: "#2c2416" }}>Ask a Question</h3>
-              <span className="badge">✦ Claude AI</span>
+              <h3 className="display-font text-xl font-semibold" style={{ color: "#0f172a" }}>Ask a Question</h3>
+              <span className="pill pill-blue">✦ Claude AI</span>
             </div>
-            <div className="divider" />
+            <div className="soft-divider" />
 
             {/* Quick prompts */}
             <div className="flex flex-wrap gap-2 mb-4">
-              {["Explain a concept", "Help me revise", "Quiz me", "Solve a problem"].map((p) => (
-                <button key={p} className="quick-chip" onClick={() => setQuestion(p)}>
-                  {p}
+              {[
+                { label: "💡 Explain a concept", value: "Explain a concept" },
+                { label: "📖 Help me revise", value: "Help me revise" },
+                { label: "🧪 Quiz me", value: "Quiz me" },
+                { label: "🔢 Solve a problem", value: "Solve a problem" },
+              ].map((p) => (
+                <button key={p.value} className="quick-chip" onClick={() => setQuestion(p.value)}>
+                  {p.label}
                 </button>
               ))}
+            </div>
+
+            <div style={{ marginBottom: "12px" }}>
+              <button
+                onClick={handleUploadClick}
+                style={{
+                  background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                  color: "white",
+                  border: "none",
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(59,130,246,0.3)",
+                  transition: "all 0.2s",
+                  fontFamily: "'Nunito', sans-serif",
+                  fontSize: "13px",
+                }}
+              >
+                {pdfUploaded ? "✅ PDF Uploaded" : "📄 Upload PDF"}
+              </button>
+
+              <input
+                type="file"
+                accept="application/pdf"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={uploadPDF}
+              />
             </div>
 
             <textarea
@@ -209,7 +301,7 @@ function AIAssistant() {
             />
 
             <div className="flex items-center justify-between mt-4">
-              <span className="text-xs" style={{ color: "#b8a07a", letterSpacing: "0.5px" }}>
+              <span className="text-xs font-semibold" style={{ color: "#94a3b8" }}>
                 Press Ctrl + Enter to send
               </span>
               <button className="ask-btn" onClick={askAI} disabled={loading || !question.trim()}>
@@ -219,30 +311,35 @@ function AIAssistant() {
           </div>
 
           {/* Response Card */}
-          <div className="card relative p-7 fade-in-delay">
-            <div className="card-top-line" />
-
+          <div className="study-card accent-teal p-6 fade-up delay-2">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="ai-title text-2xl font-light" style={{ color: "#2c2416" }}>Response</h3>
-              {response && <span className="badge">✦ Ready</span>}
+              <h3 className="display-font text-xl font-semibold" style={{ color: "#0f172a" }}>Response</h3>
+              {response && !loading && <span className="pill pill-green">✓ Ready</span>}
+              {loading && <span className="pill pill-blue">Generating...</span>}
             </div>
-            <div className="divider" />
+            <div className="soft-divider" />
 
             {loading ? (
-              <div className="flex items-center gap-3 py-4">
+              <div className="flex items-center gap-3 py-5">
                 <div className="dots">
                   <span /><span /><span />
                 </div>
-                <span className="text-xs" style={{ color: "#9a8060", letterSpacing: "1px" }}>
+                <span className="text-sm font-semibold" style={{ color: "#64748b" }}>
                   StudyHelper is thinking...
                 </span>
               </div>
             ) : response ? (
               <p className="response-text">{response}</p>
             ) : (
-              <p className="text-xs text-center py-6" style={{ color: "#c4b08a", letterSpacing: "1px" }}>
-                Your answer will appear here
-              </p>
+              <div className="flex flex-col items-center justify-center py-8 gap-2">
+                <span style={{ fontSize: "32px" }}>💬</span>
+                <p className="text-sm font-semibold text-center" style={{ color: "#94a3b8" }}>
+                  Your answer will appear here
+                </p>
+                <p className="text-xs text-center" style={{ color: "#cbd5e1" }}>
+                  Ask a question above to get started
+                </p>
+              </div>
             )}
           </div>
 

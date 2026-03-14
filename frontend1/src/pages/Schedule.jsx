@@ -1,199 +1,256 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const defaultTasks = [
-  { text: "Math Assignment", time: "9:00 AM", done: false },
-  { text: "DSA Practice", time: "11:00 AM", done: false },
-  { text: "OS Revision", time: "2:00 PM", done: true },
-];
+const BASE = "http://localhost:8000/api/v1"; // change port to match yours
+
+const getTasks = () => fetch(`${BASE}/tasks`).then((r) => r.json());
+
+const addTask = (text, time) =>
+  fetch(`${BASE}/tasks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, time }),
+  }).then((r) => r.json());
+
+const toggleTask = (id) =>
+  fetch(`${BASE}/tasks/${id}/toggle`, { method: "PATCH" }).then((r) => r.json());
+
+const deleteTask = (id) =>
+  fetch(`${BASE}/tasks/${id}`, { method: "DELETE" }).then((r) => r.json());
 
 function Schedule() {
   const [task, setTask] = useState("");
   const [time, setTime] = useState("");
-  const [tasks, setTasks] = useState(defaultTasks);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const addTask = () => {
-    if (task.trim() !== "") {
-      setTasks([...tasks, { text: task, time: time || "Anytime", done: false }]);
-      setTask("");
-      setTime("");
-    }
+  // Load tasks from DB on mount
+  useEffect(() => {
+    getTasks().then((data) => {
+      setTasks(data);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleAdd = async () => {
+    if (!task.trim()) return;
+    const formattedTime = time
+      ? new Date(`1970-01-01T${time}`).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Anytime";
+    const newTask = await addTask(task, formattedTime);
+    setTasks((prev) => [...prev, newTask]);
+    setTask("");
+    setTime("");
   };
 
-  const toggleDone = (i) =>
-    setTasks(tasks.map((t, idx) => idx === i ? { ...t, done: !t.done } : t));
+  const handleToggle = async (id) => {
+    const updated = await toggleTask(id);
+    setTasks((prev) =>
+      prev.map((t) => (t._id === id ? { ...t, done: updated.done } : t))
+    );
+  };
 
-  const deleteTask = (i) =>
-    setTasks(tasks.filter((_, idx) => idx !== i));
+  const handleDelete = async (id) => {
+    await deleteTask(id);
+    setTasks((prev) => prev.filter((t) => t._id !== id));
+  };
+
+  const doneCount = tasks.filter((t) => t.done).length;
+  const progress = tasks.length > 0 ? (doneCount / tasks.length) * 100 : 0;
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=Lora:wght@400;500;600&display=swap');
 
-        .sch-root { font-family: 'Montserrat', sans-serif; background: #f7f4ee; min-height: 100vh; }
-        .sch-title { font-family: 'Cormorant Garamond', serif; }
-
-        .card {
-          background: rgba(255,253,247,0.92);
-          border: 1px solid rgba(184,151,90,0.22);
-          box-shadow: 0 8px 32px rgba(100,80,40,0.08), 0 2px 8px rgba(100,80,40,0.04), inset 0 1px 0 rgba(255,255,255,0.8);
-          border-radius: 18px;
+        .sch-root {
+          font-family: 'Nunito', sans-serif;
+          background: #f0f4f8;
+          min-height: 100vh;
         }
-        .card-top-line {
-          position: absolute; top: 0; left: 0; right: 0; height: 1px;
-          background: linear-gradient(90deg, transparent, #b8975a, transparent);
-          border-radius: 18px 18px 0 0;
+
+        .sch-root::before {
+          content: '';
+          position: fixed; inset: 0;
+          background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+          background-size: 28px 28px;
+          opacity: 0.45;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .sch-content { position: relative; z-index: 1; }
+        .display-font { font-family: 'Lora', serif; }
+
+        .study-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 4px 16px rgba(15,23,42,0.04);
+          position: relative;
+        }
+
+        .accent-blue::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 20px; right: 20px; height: 3px;
+          border-radius: 0 0 4px 4px;
+          background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        }
+        .accent-teal::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 20px; right: 20px; height: 3px;
+          border-radius: 0 0 4px 4px;
+          background: linear-gradient(90deg, #14b8a6, #2dd4bf);
         }
 
         .sch-input {
-          background: #f9f6ef;
-          border: 1px solid rgba(184,151,90,0.3);
-          border-radius: 12px;
-          padding: 12px 16px;
-          font-family: 'Montserrat', sans-serif;
+          background: #f8fafc;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 11px 14px;
+          font-family: 'Nunito', sans-serif;
           font-size: 13px;
-          color: #2c2416;
+          font-weight: 500;
+          color: #1e293b;
           outline: none;
-          transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+          box-sizing: border-box;
         }
         .sch-input:focus {
-          border-color: #b8975a;
-          box-shadow: 0 0 0 3px rgba(184,151,90,0.13);
-          background: #fffef9;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+          background: #ffffff;
         }
-        .sch-input::placeholder { color: #b8a07a; }
+        .sch-input::placeholder { color: #94a3b8; }
 
         .add-btn {
-          background: linear-gradient(135deg, #b8975a, #8a6d38);
-          color: #fff8ee;
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          color: #ffffff;
           border: none;
-          border-radius: 12px;
-          padding: 12px 28px;
-          font-family: 'Montserrat', sans-serif;
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 3px;
-          text-transform: uppercase;
+          border-radius: 10px;
+          padding: 11px 24px;
+          font-family: 'Nunito', sans-serif;
+          font-size: 13px;
+          font-weight: 700;
           cursor: pointer;
           transition: transform 0.15s, box-shadow 0.2s;
+          box-shadow: 0 4px 12px rgba(59,130,246,0.3);
           white-space: nowrap;
         }
-        .add-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 8px 24px rgba(139,107,52,0.28);
-        }
+        .add-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(59,130,246,0.35); }
         .add-btn:active { transform: translateY(0); }
 
-        .task-item {
-          background: #f9f6ef;
-          border: 1px solid rgba(184,151,90,0.18);
-          border-radius: 13px;
-          padding: 14px 18px;
+        .task-row {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 12px 16px;
           display: flex;
           align-items: center;
-          gap: 14px;
-          transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-          animation: slideIn 0.35s cubic-bezier(0.16,1,0.3,1) both;
+          gap: 12px;
+          transition: background 0.15s, border-color 0.15s, transform 0.15s;
+          animation: slideIn 0.3s cubic-bezier(0.16,1,0.3,1) both;
         }
-        .task-item:hover {
-          background: #f3ede0;
-          border-color: rgba(184,151,90,0.38);
-          transform: translateX(3px);
-          box-shadow: 0 4px 16px rgba(100,80,40,0.07);
+        .task-row:hover {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          transform: translateX(2px);
         }
+        .task-row.done-row { opacity: 0.55; }
 
         @keyframes slideIn {
-          from { opacity: 0; transform: translateX(-16px); }
+          from { opacity: 0; transform: translateX(-14px); }
           to   { opacity: 1; transform: translateX(0); }
         }
 
-        .checkbox {
-          width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; cursor: pointer;
-          border: 1.5px solid #b8975a; background: transparent;
+        .study-check {
+          width: 20px; height: 20px;
+          border-radius: 6px;
+          border: 2px solid #93c5fd;
+          background: transparent;
           display: flex; align-items: center; justify-content: center;
-          transition: background 0.2s;
+          flex-shrink: 0; cursor: pointer;
+          transition: background 0.15s, border-color 0.15s;
         }
-        .checkbox.checked { background: linear-gradient(135deg, #b8975a, #8a6d38); border-color: transparent; }
+        .study-check.checked { background: #3b82f6; border-color: #3b82f6; }
 
         .del-btn {
           background: none; border: none; cursor: pointer;
-          color: rgba(184,151,90,0.4); font-size: 16px;
-          transition: color 0.2s; padding: 0 4px; line-height: 1;
+          color: #cbd5e1; font-size: 18px;
+          transition: color 0.15s; padding: 0 2px; line-height: 1;
+          flex-shrink: 0;
         }
-        .del-btn:hover { color: #c0392b; }
+        .del-btn:hover { color: #ef4444; }
 
-        .badge {
-          font-size: 10px; padding: 2px 8px; border-radius: 20px;
-          font-family: 'Montserrat', sans-serif; letter-spacing: 1px;
-          background: rgba(184,151,90,0.12); color: #8a6d38;
-          border: 1px solid rgba(184,151,90,0.25);
-          white-space: nowrap;
+        .pill {
+          font-size: 11px; font-weight: 700; padding: 2px 10px;
+          border-radius: 999px; letter-spacing: 0.3px; white-space: nowrap;
+        }
+        .pill-blue   { background: #dbeafe; color: #1d4ed8; }
+        .pill-teal   { background: #ccfbf1; color: #0f766e; }
+        .pill-slate  { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+        .prog-track { height: 5px; border-radius: 999px; background: #e0f2fe; }
+        .prog-fill  { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #3b82f6, #14b8a6); transition: width 0.5s ease; }
+
+        .soft-divider { height: 1px; background: #f1f5f9; margin: 14px 0; }
+
+        .greeting-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: #eff6ff; border: 1px solid #bfdbfe;
+          border-radius: 999px; padding: 4px 14px;
+          font-size: 11px; font-weight: 700; color: #1d4ed8; letter-spacing: 0.5px;
         }
 
-        .divider {
-          height: 1px;
-          background: linear-gradient(90deg, transparent, #d4c4a0, transparent);
-          margin: 16px 0;
-        }
-
-        .ornament {
-          font-family: 'Cormorant Garamond', serif;
-          color: #b8975a; opacity: 0.5; letter-spacing: 6px; font-size: 14px;
-        }
-
-        .fade-in { animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) both; }
-        .fade-in-delay { animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) 0.15s both; }
+        .fade-up { animation: fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(20px); }
+          from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .empty-state {
-          text-align: center; padding: 40px 0;
-          color: #c4b08a; font-size: 12px; letter-spacing: 2px;
-        }
-
-        .progress-bar {
-          height: 4px; border-radius: 4px;
-          background: rgba(184,151,90,0.15); margin-top: 10px;
-        }
-        .progress-fill {
-          height: 100%; border-radius: 4px;
-          background: linear-gradient(90deg, #b8975a, #8a6d38);
-          transition: width 0.5s ease;
         }
       `}</style>
 
       <div className="sch-root">
-
-        {/* Bg glows */}
-        <div className="fixed top-0 right-0 w-64 h-64 pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(184,151,90,0.07) 0%, transparent 70%)" }} />
-        <div className="fixed bottom-0 left-0 w-48 h-48 pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(139,107,52,0.05) 0%, transparent 70%)" }} />
-
-        <div className="max-w-2xl mx-auto px-6 py-10">
+        <div className="sch-content max-w-2xl mx-auto px-6 py-10">
 
           {/* Header */}
-          <div className="fade-in mb-10">
-            <div className="ornament mb-2">✦ ✦ ✦</div>
-            <h1 className="sch-title text-5xl font-light" style={{ color: "#2c2416", letterSpacing: "1px" }}>
+          <div className="fade-up mb-8">
+            <div className="greeting-badge mb-4">
+              <span>📅</span>
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </div>
+            <h1
+              className="display-font text-4xl font-semibold"
+              style={{ color: "#0f172a", letterSpacing: "-0.5px" }}
+            >
               Study Schedule
             </h1>
-            <div style={{ width: "56px", height: "1px", background: "linear-gradient(90deg, #b8975a, transparent)", marginTop: "12px" }} />
-            <p className="mt-2 text-xs uppercase tracking-widest" style={{ color: "#9a8060", letterSpacing: "3px" }}>
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
+              Plan your day, track your tasks, stay on top.
             </p>
           </div>
 
           {/* Add Task Card */}
-          <div className="card relative p-7 mb-5 fade-in">
-            <div className="card-top-line" />
+          <div className="study-card accent-blue p-6 mb-5 fade-up delay-1">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="sch-title text-2xl font-light" style={{ color: "#2c2416" }}>Add New Task</h3>
-              <span className="badge">{tasks.length} tasks</span>
+              <h3
+                className="display-font text-xl font-semibold"
+                style={{ color: "#0f172a" }}
+              >
+                Add New Task
+              </h3>
+              <span className="pill pill-blue">{tasks.length} tasks</span>
             </div>
-            <div className="divider" />
+            <div className="soft-divider" />
 
             <div className="flex gap-3 flex-wrap">
               <input
@@ -201,7 +258,7 @@ function Schedule() {
                 style={{ minWidth: "180px" }}
                 value={task}
                 onChange={(e) => setTask(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addTask()}
+                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                 placeholder="Enter study task..."
               />
               <input
@@ -211,76 +268,120 @@ function Schedule() {
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
               />
-              <button className="add-btn" onClick={addTask}>
-                Add ✦
+              <button className="add-btn" onClick={handleAdd}>
+                + Add
               </button>
             </div>
-            <p className="text-xs mt-3" style={{ color: "#b8a07a", letterSpacing: "0.5px" }}>
+            <p
+              className="text-xs mt-3 font-semibold"
+              style={{ color: "#94a3b8" }}
+            >
               Press Enter to add quickly
             </p>
           </div>
 
           {/* Task List Card */}
-          <div className="card relative p-7 fade-in-delay">
-            <div className="card-top-line" />
-
+          <div className="study-card accent-teal p-6 fade-up delay-2">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="sch-title text-2xl font-light" style={{ color: "#2c2416" }}>Today's Tasks</h3>
-              <span className="badge">
-                {tasks.filter(t => t.done).length} / {tasks.length} done
+              <h3
+                className="display-font text-xl font-semibold"
+                style={{ color: "#0f172a" }}
+              >
+                Today's Tasks
+              </h3>
+              <span className="pill pill-teal">
+                {doneCount} / {tasks.length} done
               </span>
             </div>
-            <div className="divider" />
+            <div className="soft-divider" />
 
             {/* Progress bar */}
             {tasks.length > 0 && (
-              <div className="progress-bar mb-5">
+              <div className="mb-5">
                 <div
-                  className="progress-fill"
-                  style={{ width: `${(tasks.filter(t => t.done).length / tasks.length) * 100}%` }}
-                />
+                  className="flex justify-between text-xs font-semibold mb-1.5"
+                  style={{ color: "#64748b" }}
+                >
+                  <span>Completion</span>
+                  <span style={{ color: "#14b8a6" }}>{Math.round(progress)}%</span>
+                </div>
+                <div className="prog-track">
+                  <div className="prog-fill" style={{ width: `${progress}%` }} />
+                </div>
               </div>
             )}
 
-            {tasks.length === 0 ? (
-              <div className="empty-state">
-                No tasks yet — add one above ✦
+            {/* Loading state */}
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <span style={{ fontSize: "32px" }}>⏳</span>
+                <p className="text-sm font-semibold" style={{ color: "#94a3b8" }}>
+                  Loading tasks...
+                </p>
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <span style={{ fontSize: "32px" }}>📋</span>
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: "#94a3b8" }}
+                >
+                  No tasks yet
+                </p>
+                <p className="text-xs" style={{ color: "#cbd5e1" }}>
+                  Add one above to get started
+                </p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {tasks.map((t, i) => (
-                  <div key={i} className="task-item">
-
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+              >
+                {tasks.map((t) => (
+                  <div
+                    key={t._id}
+                    className={`task-row ${t.done ? "done-row" : ""}`}
+                  >
                     {/* Checkbox */}
-                    <div className={`checkbox ${t.done ? "checked" : ""}`} onClick={() => toggleDone(i)}>
+                    <div
+                      className={`study-check ${t.done ? "checked" : ""}`}
+                      onClick={() => handleToggle(t._id)}
+                    >
                       {t.done && (
-                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                          <path
+                            d="M1 4.5L4 7.5L10 1"
+                            stroke="white"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                       )}
                     </div>
 
                     {/* Text */}
                     <span
-                      className="flex-1 text-sm"
+                      className="flex-1 text-sm font-semibold"
                       style={{
-                        color: t.done ? "#b8a080" : "#2c2416",
+                        color: t.done ? "#94a3b8" : "#1e293b",
                         textDecoration: t.done ? "line-through" : "none",
-                        fontFamily: "'Montserrat', sans-serif",
-                        transition: "color 0.2s",
+                        transition: "color 0.15s",
                       }}
                     >
                       {t.text}
                     </span>
 
                     {/* Time badge */}
-                    <span className="badge">{t.time}</span>
+                    <span className="pill pill-slate">{t.time}</span>
 
                     {/* Delete */}
-                    <button className="del-btn" onClick={() => deleteTask(i)} title="Remove task">
+                    <button
+                      className="del-btn"
+                      onClick={() => handleDelete(t._id)}
+                      title="Remove task"
+                    >
                       ×
                     </button>
-
                   </div>
                 ))}
               </div>
@@ -288,8 +389,11 @@ function Schedule() {
 
             {tasks.length > 0 && (
               <>
-                <div className="divider" />
-                <p className="text-xs text-center" style={{ color: "#b8a07a", letterSpacing: "1px" }}>
+                <div className="soft-divider" />
+                <p
+                  className="text-xs text-center font-semibold"
+                  style={{ color: "#94a3b8" }}
+                >
                   Click a task to mark complete · × to remove
                 </p>
               </>

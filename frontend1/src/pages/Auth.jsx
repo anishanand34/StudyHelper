@@ -21,26 +21,16 @@ function Auth() {
 
     try {
       if (isLogin) {
-        // --- SIGN IN ---
         const res = await fetch("http://localhost:8000/api/v1/users/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ username, password }),
         });
-
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Login failed");
         navigate("/dashboard");
-
       } else {
-        // --- SIGN UP ---
-        // if (!avatar) {
-        //   setError("Avatar image is required");
-        //   setLoading(false);
-        //   return;
-        // }
-
         const formData = new FormData();
         formData.append("fullName", fullName);
         formData.append("email", email);
@@ -53,14 +43,12 @@ function Auth() {
           credentials: "include",
           body: formData,
         });
-
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Registration failed");
 
         setIsLogin(true);
         setError("✓ Account created! Please sign in.");
       }
-
     } catch (err) {
       setError(err.message);
     } finally {
@@ -79,291 +67,296 @@ function Auth() {
   };
 
   const inputStyle = (name) => ({
-    background: focused === name ? "#fffef9" : "#f9f6ef",
-    border: `1px solid ${focused === name ? "#b8975a" : "rgba(184,151,90,0.3)"}`,
-    color: "#2c2416",
-    fontFamily: "'Montserrat', sans-serif",
+    width: "100%",
+    padding: "11px 16px",
+    borderRadius: "10px",
     fontSize: "13px",
+    fontFamily: "'Nunito', sans-serif",
+    fontWeight: 500,
+    color: "#1e293b",
+    background: focused === name ? "#ffffff" : "#f8fafc",
+    border: `1.5px solid ${focused === name ? "#3b82f6" : "#e2e8f0"}`,
+    outline: "none",
+    boxShadow: focused === name ? "0 0 0 3px rgba(59,130,246,0.12)" : "none",
+    transition: "border-color 0.2s, box-shadow 0.2s, background 0.2s",
+    boxSizing: "border-box",
   });
-
-  const labelStyle = {
-    color: "#7a6040",
-    letterSpacing: "2px",
-  };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=Lora:wght@400;500;600&display=swap');
 
-        .auth-root { font-family: 'Montserrat', sans-serif; }
-        .auth-title { font-family: 'Cormorant Garamond', serif; }
+        .auth-root {
+          font-family: 'Nunito', sans-serif;
+          background: #f0f4f8;
+          min-height: 100vh;
+        }
+
+        /* Dot-grid background matching dashboard */
+        .auth-root::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+          background-size: 28px 28px;
+          opacity: 0.45;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .display-font { font-family: 'Lora', serif; }
+
+        .auth-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 20px;
+          box-shadow: 0 4px 24px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.04);
+          position: relative;
+          z-index: 1;
+        }
+
+        /* Blue accent line at top of card */
+        .auth-card::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 20px; right: 20px;
+          height: 3px;
+          border-radius: 0 0 4px 4px;
+          background: linear-gradient(90deg, #3b82f6, #14b8a6);
+        }
 
         .card-float {
-          animation: floatIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation: floatIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         @keyframes floatIn {
-          from { opacity: 0; transform: translateY(28px) scale(0.97); }
+          from { opacity: 0; transform: translateY(24px) scale(0.98); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        .input-field { transition: border-color 0.25s, box-shadow 0.25s, background 0.25s; }
-        .input-field:focus {
-          outline: none;
-          border-color: #b8975a;
-          box-shadow: 0 0 0 3px rgba(184,151,90,0.13);
-          background: #fffef9;
-        }
-
         .submit-btn {
-          transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-          letter-spacing: 2px;
+          width: 100%;
+          padding: 12px;
+          border-radius: 10px;
+          border: none;
+          font-family: 'Nunito', sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          cursor: pointer;
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          color: #ffffff;
+          transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+          box-shadow: 0 4px 12px rgba(59,130,246,0.3);
         }
         .submit-btn:hover:not(:disabled) {
-          background: #8a6d38;
           transform: translateY(-1px);
-          box-shadow: 0 8px 24px rgba(139,107,52,0.28);
+          box-shadow: 0 8px 20px rgba(59,130,246,0.35);
+          background: linear-gradient(135deg, #2563eb, #1d4ed8);
         }
-        .submit-btn:active:not(:disabled) { transform: translateY(0px); }
+        .submit-btn:active:not(:disabled) { transform: translateY(0); }
+        .submit-btn:disabled { background: #93c5fd; cursor: not-allowed; box-shadow: none; }
 
-        .toggle-btn { transition: color 0.2s; letter-spacing: 0.5px; }
-        .toggle-btn:hover { color: #8a6d38; }
+        .toggle-btn {
+          background: none; border: none; cursor: pointer;
+          color: #3b82f6; font-weight: 700;
+          font-family: 'Nunito', sans-serif;
+          font-size: 13px;
+          transition: color 0.15s;
+          padding: 0;
+        }
+        .toggle-btn:hover { color: #1d4ed8; }
 
-        .divider-line {
-          flex: 1; height: 1px;
-          background: linear-gradient(to right, transparent, #d4c4a0, transparent);
+        .forgot-btn {
+          background: none; border: none; cursor: pointer;
+          color: #94a3b8; font-size: 12px;
+          font-family: 'Nunito', sans-serif;
+          transition: color 0.15s; padding: 0;
+        }
+        .forgot-btn:hover { color: #3b82f6; }
+
+        .label-style {
+          display: block;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1.5px;
+          color: #64748b;
+          margin-bottom: 7px;
         }
 
-        .bg-pattern {
-          background-image:
-            radial-gradient(circle at 20% 50%, rgba(184,151,90,0.07) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(139,107,52,0.06) 0%, transparent 40%),
-            radial-gradient(circle at 60% 80%, rgba(200,175,120,0.05) 0%, transparent 40%);
+        .soft-divider { height: 1px; background: #f1f5f9; margin: 20px 0; }
+
+        .greeting-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: 999px;
+          padding: 4px 14px;
+          font-size: 11px; font-weight: 700; color: #1d4ed8; letter-spacing: 0.5px;
+          text-transform: uppercase;
         }
 
-        .ornament {
-          font-family: 'Cormorant Garamond', serif;
-          font-size: 22px;
-          color: #b8975a;
-          opacity: 0.6;
-          letter-spacing: 8px;
+        .file-input-wrap {
+          width: 100%;
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: #f8fafc;
+          border: 1.5px solid #e2e8f0;
+          color: #64748b;
+          font-size: 12px;
+          font-family: 'Nunito', sans-serif;
+          cursor: pointer;
+          box-sizing: border-box;
+          transition: border-color 0.2s;
         }
-
-        .file-input::-webkit-file-upload-button {
-          background: linear-gradient(135deg, #b8975a, #8a6d38);
-          color: #fff8ee;
+        .file-input-wrap:hover { border-color: #93c5fd; }
+        .file-input-wrap::-webkit-file-upload-button {
+          background: #dbeafe;
+          color: #1d4ed8;
           border: none;
-          padding: 6px 12px;
+          padding: 5px 12px;
           border-radius: 6px;
           font-size: 11px;
-          font-family: 'Montserrat', sans-serif;
-          letter-spacing: 1px;
+          font-weight: 700;
+          font-family: 'Nunito', sans-serif;
+          letter-spacing: 0.5px;
           cursor: pointer;
           margin-right: 10px;
+          transition: background 0.15s;
         }
+        .file-input-wrap::-webkit-file-upload-button:hover { background: #bfdbfe; }
+
+        /* Corner glow blobs */
+        .blob-tl { position: fixed; top: -60px; left: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+        .blob-br { position: fixed; bottom: -60px; right: -60px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(20,184,166,0.07) 0%, transparent 70%); pointer-events: none; z-index: 0; }
       `}</style>
 
-      <div
-        className="auth-root flex items-center justify-center min-h-screen bg-pattern"
-        style={{ background: "#f7f4ee" }}
-      >
-        <div className="fixed top-0 left-0 w-40 h-40 opacity-20"
-          style={{ background: "radial-gradient(circle, #b8975a 0%, transparent 70%)" }} />
-        <div className="fixed bottom-0 right-0 w-56 h-56 opacity-15"
-          style={{ background: "radial-gradient(circle, #8a6d38 0%, transparent 70%)" }} />
+      <div className="auth-root flex items-center justify-center min-h-screen px-4">
+        <div className="blob-tl" />
+        <div className="blob-br" />
 
-        <div className="card-float relative w-full mx-4" style={{ maxWidth: "420px" }}>
-          <div
-            className="relative overflow-hidden rounded-2xl"
-            style={{
-              background: "rgba(255,253,247,0.92)",
-              border: "1px solid rgba(184,151,90,0.25)",
-              boxShadow: "0 24px 64px rgba(100,80,40,0.12), 0 4px 16px rgba(100,80,40,0.06), inset 0 1px 0 rgba(255,255,255,0.8)",
-              padding: "48px 44px 40px",
-            }}
-          >
-            <div className="absolute top-0 left-0 right-0 h-px"
-              style={{ background: "linear-gradient(90deg, transparent, #b8975a, transparent)" }} />
+        <div className="card-float w-full" style={{ maxWidth: "420px", position: "relative", zIndex: 1 }}>
+          <div className="auth-card" style={{ padding: "44px 40px 36px" }}>
 
-            {/* Brand */}
+            {/* Brand header */}
             <div className="text-center mb-8">
-              <div className="ornament mb-3">✦ ✦ ✦</div>
-              <h1 className="auth-title text-5xl font-light tracking-wide"
-                style={{ color: "#2c2416", letterSpacing: "1px" }}>
+              <div className="greeting-badge mb-4">
+                <span>📚</span>
+                {isLogin ? "Welcome back" : "Join StudyHelper"}
+              </div>
+              <h1 className="display-font text-4xl font-semibold" style={{ color: "#0f172a", letterSpacing: "-0.5px" }}>
                 StudyHelper
               </h1>
-              <div className="mx-auto mt-3"
-                style={{ width: "48px", height: "1px", background: "linear-gradient(90deg, transparent, #b8975a, transparent)" }} />
-              <p className="mt-3 text-xs uppercase tracking-widest"
-                style={{ color: "#b8975a", letterSpacing: "3px" }}>
-                {isLogin ? "Welcome back" : "Create your account"}
+              <p className="mt-2 text-sm" style={{ color: "#64748b" }}>
+                {isLogin
+                  ? "Sign in to continue your study session."
+                  : "Create an account to get started."}
               </p>
             </div>
 
-            {/* Error / Success message */}
+            {/* Error / success */}
             {error && (
-              <div className="mb-4 py-2 px-3 rounded-lg text-xs text-center"
-                style={{
-                  color: error.startsWith("✓") ? "#5a7a40" : "#c0392b",
-                  background: error.startsWith("✓") ? "#f4fff0" : "#fff4f4",
-                  border: `1px solid ${error.startsWith("✓") ? "#b8d4a8" : "#f5c6c6"}`,
-                  fontFamily: "'Montserrat', sans-serif",
-                }}>
+              <div style={{
+                marginBottom: "16px",
+                padding: "10px 14px",
+                borderRadius: "10px",
+                fontSize: "12px",
+                fontWeight: 600,
+                textAlign: "center",
+                color: error.startsWith("✓") ? "#15803d" : "#b91c1c",
+                background: error.startsWith("✓") ? "#dcfce7" : "#fee2e2",
+                border: `1px solid ${error.startsWith("✓") ? "#86efac" : "#fca5a5"}`,
+              }}>
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
 
-              {/* ── SIGN UP ONLY FIELDS ── */}
+              {/* Sign up only */}
               {!isLogin && (
                 <>
                   <div>
-                    <label className="block text-xs uppercase tracking-widest mb-2 font-medium" style={labelStyle}>
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={fullName}
+                    <label className="label-style">Full Name</label>
+                    <input type="text" placeholder="Enter your full name" value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      onFocus={() => setFocused("fullName")}
-                      onBlur={() => setFocused("")}
-                      className="input-field w-full px-4 py-3 rounded-xl"
-                      style={inputStyle("fullName")}
-                    />
+                      onFocus={() => setFocused("fullName")} onBlur={() => setFocused("")}
+                      style={inputStyle("fullName")} />
                   </div>
-
                   <div>
-                    <label className="block text-xs uppercase tracking-widest mb-2 font-medium" style={labelStyle}>
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="Enter your email"
-                      value={email}
+                    <label className="label-style">Email</label>
+                    <input type="email" placeholder="Enter your email" value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      onFocus={() => setFocused("email")}
-                      onBlur={() => setFocused("")}
-                      className="input-field w-full px-4 py-3 rounded-xl"
-                      style={inputStyle("email")}
-                    />
+                      onFocus={() => setFocused("email")} onBlur={() => setFocused("")}
+                      style={inputStyle("email")} />
                   </div>
                 </>
               )}
 
-              {/* ── SHARED FIELDS ── */}
+              {/* Shared fields */}
               <div>
-                <label className="block text-xs uppercase tracking-widest mb-2 font-medium" style={labelStyle}>
-                  Username
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter your username"
-                  value={username}
+                <label className="label-style">Username</label>
+                <input type="text" placeholder="Enter your username" value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  onFocus={() => setFocused("username")}
-                  onBlur={() => setFocused("")}
-                  className="input-field w-full px-4 py-3 rounded-xl"
-                  style={inputStyle("username")}
-                />
+                  onFocus={() => setFocused("username")} onBlur={() => setFocused("")}
+                  style={inputStyle("username")} />
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-widest mb-2 font-medium" style={labelStyle}>
-                  Password
-                </label>
-                <input
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "7px" }}>
+                  <label className="label-style" style={{ marginBottom: 0 }}>Password</label>
+                  {isLogin && (
+                    <button type="button" className="forgot-btn">Forgot password?</button>
+                  )}
+                </div>
+                <input type="password" placeholder="Enter your password" value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setFocused("password")}
-                  onBlur={() => setFocused("")}
-                  className="input-field w-full px-4 py-3 rounded-xl"
-                  style={inputStyle("password")}
-                />
+                  onFocus={() => setFocused("password")} onBlur={() => setFocused("")}
+                  style={inputStyle("password")} />
               </div>
 
-              {/* ── SIGN UP ONLY — Avatar ── */}
+              {/* Avatar — sign up only */}
               {!isLogin && (
                 <div>
-                  <label className="block text-xs uppercase tracking-widest mb-2 font-medium" style={labelStyle}>
-                    Avatar Image <span style={{ color: "#c0392b" }}>*</span>
+                  <label className="label-style">
+                    Avatar Image <span style={{ color: "#ef4444" }}>*</span>
                   </label>
-                  <input
-                    type="file"
-                    accept="image/*"
+                  <input type="file" accept="image/*"
                     onChange={(e) => setAvatar(e.target.files[0])}
-                    className="file-input w-full text-xs rounded-xl px-3 py-2"
-                    style={{
-                      background: "#f9f6ef",
-                      border: "1px solid rgba(184,151,90,0.3)",
-                      color: "#7a6040",
-                      fontFamily: "'Montserrat', sans-serif",
-                    }}
-                  />
+                    className="file-input-wrap" />
                   {avatar && (
-                    <p className="mt-1 text-xs" style={{ color: "#7a9a60" }}>
+                    <p style={{ marginTop: "5px", fontSize: "11px", fontWeight: 600, color: "#16a34a" }}>
                       ✓ {avatar.name}
                     </p>
                   )}
                 </div>
               )}
 
-              {/* ── SIGN IN ONLY — Forgot password ── */}
-              {isLogin && (
-                <div className="text-right">
-                  <button type="button" className="text-xs toggle-btn"
-                    style={{ color: "#b8975a", fontFamily: "'Montserrat', sans-serif" }}>
-                    Forgot password?
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="submit-btn w-full py-3 rounded-xl text-xs font-medium uppercase mt-2"
-                style={{
-                  background: loading
-                    ? "#c8b48a"
-                    : "linear-gradient(135deg, #b8975a, #8a6d38)",
-                  color: "#fff8ee",
-                  letterSpacing: "3px",
-                  fontFamily: "'Montserrat', sans-serif",
-                  cursor: loading ? "not-allowed" : "pointer",
-                }}
-              >
-                {loading
-                  ? "Please wait..."
-                  : isLogin ? "Sign In" : "Create Account"}
+              <button type="submit" className="submit-btn" disabled={loading} style={{ marginTop: "4px" }}>
+                {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
               </button>
             </form>
 
-            <div className="flex items-center gap-4 my-6">
-              <div className="divider-line" />
-              <span className="text-xs" style={{ color: "#b8a080", letterSpacing: "2px" }}>or</span>
-              <div className="divider-line" />
-            </div>
+            <div className="soft-divider" />
 
-            <p className="text-center text-xs" style={{ color: "#9a8060" }}>
+            {/* Switch mode */}
+            <p className="text-center text-sm" style={{ color: "#64748b" }}>
               {isLogin ? "Don't have an account?" : "Already have an account?"}
-              <button
-                onClick={switchMode}
-                className="toggle-btn ml-2 font-medium"
-                style={{ color: "#b8975a", fontFamily: "'Montserrat', sans-serif" }}
-              >
+              <button onClick={switchMode} className="toggle-btn" style={{ marginLeft: "6px" }}>
                 {isLogin ? "Sign Up" : "Sign In"}
               </button>
             </p>
 
-            <div className="absolute bottom-0 left-0 right-0 h-px"
-              style={{ background: "linear-gradient(90deg, transparent, #b8975a40, transparent)" }} />
           </div>
 
-          <div className="absolute -bottom-3 left-8 right-8 h-6 rounded-full -z-10"
-            style={{ background: "rgba(184,151,90,0.15)", filter: "blur(12px)" }} />
+          {/* Soft shadow below card */}
+          <div style={{
+            position: "absolute", bottom: "-8px", left: "24px", right: "24px",
+            height: "16px", borderRadius: "50%",
+            background: "rgba(59,130,246,0.1)", filter: "blur(12px)", zIndex: -1,
+          }} />
         </div>
       </div>
     </>

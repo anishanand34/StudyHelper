@@ -1,133 +1,205 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const tasks = [
-  { label: "Math Assignment", due: "Today", done: false },
-  { label: "DSA Practice", due: "Tomorrow", done: false },
-  { label: "OS Revision", due: "Wed", done: true },
-];
+const BASE = "http://localhost:8000/api/v1";
+
+const getTasks = () => fetch(`${BASE}/tasks`).then((r) => r.json());
+
+const toggleTask = (id) =>
+  fetch(`${BASE}/tasks/${id}/toggle`, { method: "PATCH" }).then((r) => r.json());
 
 const subjects = [
-  { name: "Mathematics", hours: 1.5, color: "#b8975a" },
-  { name: "Data Structures", hours: 1.5, color: "#8a6d38" },
-  { name: "Operating Systems", hours: 1.0, color: "#c4a96e" },
+  { name: "Mathematics", hours: 1.5, total: 4, color: "bg-blue-400", light: "bg-blue-100", text: "text-blue-600" },
+  { name: "Data Structures", hours: 2.0, total: 4, color: "bg-teal-400", light: "bg-teal-100", text: "text-teal-600" },
+  { name: "Operating Systems", hours: 1.0, total: 4, color: "bg-indigo-400", light: "bg-indigo-100", text: "text-indigo-600" },
 ];
 
 function Dashboard() {
-  const [checked, setChecked] = useState(
-    tasks.map((t) => t.done)
-  );
+  const [tasks, setTasks] = useState([]);
 
-  const toggle = (i) =>
-    setChecked((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
+  useEffect(() => {
+    getTasks().then((data) => setTasks(data));
+  }, []);
+
+  const handleToggle = async (id) => {
+    const updated = await toggleTask(id);
+    setTasks((prev) =>
+      prev.map((t) => (t._id === id ? { ...t, done: updated.done } : t))
+    );
+  };
+
+  const doneCount = tasks.filter((t) => t.done).length;
+
+  const getDueLabel = (createdAt) => {
+    const created = new Date(createdAt);
+    const today = new Date();
+    const diff = Math.floor(
+      (new Date(today.toDateString()) - new Date(created.toDateString())) /
+        (1000 * 60 * 60 * 24)
+    );
+    if (diff === 0) return "Today";
+    if (diff === -1) return "Tomorrow";
+    return created.toLocaleDateString("en-US", { weekday: "short" });
+  };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=Lora:wght@400;500;600&display=swap');
 
-        .dash-root { font-family: 'Montserrat', sans-serif; background: #f7f4ee; min-height: 100vh; }
-        .dash-title { font-family: 'Cormorant Garamond', serif; }
-
-        .card {
-          background: rgba(255,253,247,0.92);
-          border: 1px solid rgba(184,151,90,0.22);
-          box-shadow: 0 8px 32px rgba(100,80,40,0.08), 0 2px 8px rgba(100,80,40,0.04), inset 0 1px 0 rgba(255,255,255,0.8);
-          border-radius: 18px;
-          transition: box-shadow 0.25s, transform 0.25s;
+        .dash-root {
+          font-family: 'Nunito', sans-serif;
+          background: #f0f4f8;
+          min-height: 100vh;
         }
-        .card:hover {
-          box-shadow: 0 16px 48px rgba(100,80,40,0.13), 0 4px 12px rgba(100,80,40,0.07);
+
+        .dash-root::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+          background-size: 28px 28px;
+          opacity: 0.45;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .dash-content { position: relative; z-index: 1; }
+
+        .display-font { font-family: 'Lora', serif; }
+
+        .study-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 4px 16px rgba(15,23,42,0.04);
+          transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .study-card:hover {
+          box-shadow: 0 4px 20px rgba(15,23,42,0.1);
           transform: translateY(-2px);
         }
 
-        .card-top-line {
-          position: absolute; top: 0; left: 0; right: 0; height: 1px;
-          background: linear-gradient(90deg, transparent, #b8975a, transparent);
-          border-radius: 18px 18px 0 0;
+        .stat-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          box-shadow: 0 1px 3px rgba(15,23,42,0.05);
         }
 
-        .task-item {
-          border: 1px solid rgba(184,151,90,0.18);
-          border-radius: 12px;
-          background: #f9f6ef;
-          transition: background 0.2s, border-color 0.2s;
+        .task-row {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          transition: background 0.15s, border-color 0.15s;
+          cursor: pointer;
         }
-        .task-item:hover { background: #f3ede0; border-color: rgba(184,151,90,0.4); }
+        .task-row:hover { background: #eff6ff; border-color: #bfdbfe; }
 
-        .checkbox {
-          width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; cursor: pointer;
-          border: 1.5px solid #b8975a; background: transparent;
+        .study-check {
+          width: 20px; height: 20px;
+          border-radius: 6px;
+          border: 2px solid #93c5fd;
+          background: transparent;
           display: flex; align-items: center; justify-content: center;
-          transition: background 0.2s;
+          flex-shrink: 0;
+          transition: background 0.15s, border-color 0.15s;
         }
-        .checkbox.checked { background: linear-gradient(135deg, #b8975a, #8a6d38); border-color: transparent; }
+        .study-check.checked { background: #3b82f6; border-color: #3b82f6; }
 
-        .bar-fill { border-radius: 4px; transition: width 0.8s ease; }
+        .prog-track { height: 6px; border-radius: 999px; overflow: hidden; }
+        .prog-fill { height: 100%; border-radius: 999px; transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1); }
 
-        .badge {
-          font-size: 10px; padding: 2px 8px; border-radius: 20px;
-          font-family: 'Montserrat', sans-serif; letter-spacing: 1px;
-          background: rgba(184,151,90,0.12); color: #8a6d38; border: 1px solid rgba(184,151,90,0.25);
-        }
+        .pill { font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 999px; letter-spacing: 0.3px; }
+        .pill-blue   { background: #dbeafe; color: #1d4ed8; }
+        .pill-teal   { background: #ccfbf1; color: #0f766e; }
+        .pill-slate  { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+        .pill-green  { background: #dcfce7; color: #15803d; }
+        .pill-orange { background: #ffedd5; color: #c2410c; }
 
-        .ornament {
-          font-family: 'Cormorant Garamond', serif;
-          color: #b8975a; opacity: 0.5; letter-spacing: 6px; font-size: 14px;
-        }
+        .soft-divider { height: 1px; background: #f1f5f9; margin: 16px 0; }
 
-        .divider {
-          height: 1px;
-          background: linear-gradient(90deg, transparent, #d4c4a0, transparent);
-          margin: 16px 0;
-        }
-
-        .stat-num { font-family: 'Cormorant Garamond', serif; color: #b8975a; line-height: 1; }
-
-        .fade-in { animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) both; }
-        .fade-in:nth-child(2) { animation-delay: 0.1s; }
-        .fade-in:nth-child(3) { animation-delay: 0.2s; }
-        .fade-in:nth-child(4) { animation-delay: 0.3s; }
+        .fade-up { animation: fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+        .delay-1 { animation-delay: 0.08s; }
+        .delay-2 { animation-delay: 0.16s; }
+        .delay-3 { animation-delay: 0.24s; }
+        .delay-4 { animation-delay: 0.32s; }
 
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(20px); }
+          from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .accent-top { position: relative; }
+        .accent-top::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 20px; right: 20px;
+          height: 3px;
+          border-radius: 0 0 4px 4px;
+        }
+        .accent-blue::before  { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        .accent-teal::before  { background: linear-gradient(90deg, #14b8a6, #2dd4bf); }
+
+        .greeting-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: 999px;
+          padding: 4px 14px;
+          font-size: 12px; font-weight: 600; color: #1d4ed8; letter-spacing: 0.3px;
         }
       `}</style>
 
-      <div className="dash-root" style={{ background: "#f7f4ee" }}>
-
-        {/* Subtle bg glows */}
-        <div className="fixed top-0 right-0 w-64 h-64 pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(184,151,90,0.07) 0%, transparent 70%)" }} />
-        <div className="fixed bottom-0 left-0 w-48 h-48 pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(139,107,52,0.05) 0%, transparent 70%)" }} />
-
-        <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="dash-root">
+        <div className="dash-content max-w-5xl mx-auto px-6 py-10">
 
           {/* Header */}
-          <div className="fade-in mb-10">
-            <div className="ornament mb-2">✦ ✦ ✦</div>
-            <h1 className="dash-title text-5xl font-light" style={{ color: "#2c2416", letterSpacing: "1px" }}>
+          <div className="fade-up mb-8">
+            <div className="greeting-badge mb-4">
+              <span>📚</span>
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </div>
+            <h1
+              className="display-font text-4xl font-semibold"
+              style={{ color: "#0f172a", letterSpacing: "-0.5px" }}
+            >
               Study Dashboard
             </h1>
-            <div style={{ width: "56px", height: "1px", background: "linear-gradient(90deg, #b8975a, transparent)", marginTop: "12px" }} />
-            <p className="mt-2 text-xs uppercase tracking-widest" style={{ color: "#9a8060", letterSpacing: "3px" }}>
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
+              Track your progress, manage tasks, and stay focused.
             </p>
           </div>
 
-          {/* Top Stats Row */}
-          <div className="grid grid-cols-3 gap-4 mb-6 fade-in">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 mb-6 fade-up delay-1">
             {[
-              { label: "Subjects Studied", value: "3", sub: "today" },
-              { label: "Study Time", value: "4h", sub: "logged" },
-              { label: "Tasks Done", value: `${checked.filter(Boolean).length}/${tasks.length}`, sub: "completed" },
+              { label: "Subjects", value: subjects.length, sub: "active today", icon: "📖", pill: "pill-blue" },
+              { label: "Study Time", value: "4h", sub: "logged today", icon: "⏱️", pill: "pill-teal" },
+              { label: "Tasks Done", value: `${doneCount}/${tasks.length}`, sub: "completed", icon: "✅", pill: "pill-green" },
             ].map((s) => (
-              <div key={s.label} className="card relative p-6 text-center">
-                <div className="card-top-line" />
-                <div className="stat-num text-5xl font-light mb-1">{s.value}</div>
-                <div className="text-xs uppercase tracking-widest" style={{ color: "#9a8060", letterSpacing: "2px" }}>{s.label}</div>
-                <div className="text-xs mt-1" style={{ color: "#c4b08a" }}>{s.sub}</div>
+              <div key={s.label} className="stat-card p-5 flex items-center gap-4">
+                <div className="text-3xl">{s.icon}</div>
+                <div>
+                  <div
+                    className="display-font text-3xl font-semibold"
+                    style={{ color: "#0f172a", lineHeight: 1 }}
+                  >
+                    {s.value}
+                  </div>
+                  <div
+                    className="text-xs font-semibold mt-0.5 uppercase tracking-wide"
+                    style={{ color: "#94a3b8" }}
+                  >
+                    {s.label}
+                  </div>
+                  <span className={`pill ${s.pill} mt-1.5 inline-block`}>
+                    {s.sub}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -136,93 +208,193 @@ function Dashboard() {
           <div className="grid md:grid-cols-2 gap-5">
 
             {/* Today's Progress */}
-            <div className="card relative p-7 fade-in">
-              <div className="card-top-line" />
+            <div className="study-card accent-top accent-blue p-6 fade-up delay-2">
               <div className="flex items-center justify-between mb-1">
-                <h3 className="dash-title text-2xl font-light" style={{ color: "#2c2416" }}>Today's Progress</h3>
-                <span className="badge">Daily</span>
+                <h3
+                  className="display-font text-xl font-semibold"
+                  style={{ color: "#0f172a" }}
+                >
+                  Today's Progress
+                </h3>
+                <span className="pill pill-blue">Daily</span>
               </div>
-              <div className="divider" />
+              <div className="soft-divider" />
 
-              <div className="space-y-5">
+              <div className="flex flex-col gap-5">
                 {subjects.map((s) => (
                   <div key={s.name}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs uppercase tracking-widest" style={{ color: "#7a6040", letterSpacing: "1.5px" }}>
-                        {s.name}
+                    <div className="flex justify-between items-center mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${s.color}`} />
+                        <span
+                          className="text-sm font-semibold"
+                          style={{ color: "#334155" }}
+                        >
+                          {s.name}
+                        </span>
+                      </div>
+                      <span className={`text-xs font-bold ${s.text}`}>
+                        {s.hours}h
                       </span>
-                      <span className="text-xs font-medium" style={{ color: "#b8975a" }}>{s.hours}h</span>
                     </div>
-                    <div className="w-full rounded-full" style={{ height: "5px", background: "rgba(184,151,90,0.15)" }}>
+                    <div className={`prog-track ${s.light}`}>
                       <div
-                        className="bar-fill"
-                        style={{
-                          height: "5px",
-                          width: `${(s.hours / 4) * 100}%`,
-                          background: `linear-gradient(90deg, ${s.color}, ${s.color}80)`,
-                        }}
+                        className={`prog-fill ${s.color}`}
+                        style={{ width: `${(s.hours / s.total) * 100}%` }}
                       />
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="divider" />
-              <div className="flex justify-between text-xs" style={{ color: "#9a8060" }}>
-                <span>Total studied</span>
-                <span style={{ color: "#b8975a", fontWeight: 500 }}>4h / 6h goal</span>
+              <div className="soft-divider" />
+              <div
+                className="flex justify-between text-xs font-semibold mb-2"
+                style={{ color: "#64748b" }}
+              >
+                <span>Overall goal</span>
+                <span className="text-blue-500">4h / 6h</span>
               </div>
-              <div className="w-full rounded-full mt-2" style={{ height: "4px", background: "rgba(184,151,90,0.15)" }}>
-                <div className="bar-fill" style={{ height: "4px", width: "66%", background: "linear-gradient(90deg, #b8975a, #8a6d38)" }} />
+              <div className="prog-track bg-blue-100">
+                <div
+                  className="prog-fill bg-gradient-to-r from-blue-400 to-blue-500"
+                  style={{ width: "66%" }}
+                />
               </div>
+              <p className="text-xs mt-2 text-right" style={{ color: "#94a3b8" }}>
+                66% of daily goal
+              </p>
             </div>
 
-            {/* Upcoming Tasks */}
-            <div className="card relative p-7 fade-in">
-              <div className="card-top-line" />
+            {/* Upcoming Tasks — live from DB */}
+            <div className="study-card accent-top accent-teal p-6 fade-up delay-3">
               <div className="flex items-center justify-between mb-1">
-                <h3 className="dash-title text-2xl font-light" style={{ color: "#2c2416" }}>Upcoming Tasks</h3>
-                <span className="badge">{tasks.length - checked.filter(Boolean).length} left</span>
+                <h3
+                  className="display-font text-xl font-semibold"
+                  style={{ color: "#0f172a" }}
+                >
+                  Upcoming Tasks
+                </h3>
+                <span className="pill pill-teal">
+                  {tasks.filter((t) => !t.done).length} left
+                </span>
               </div>
-              <div className="divider" />
+              <div className="soft-divider" />
 
-              <ul className="space-y-3">
-                {tasks.map((task, i) => (
-                  <li
-                    key={i}
-                    className="task-item flex items-center gap-3 px-4 py-3 cursor-pointer"
-                    onClick={() => toggle(i)}
+              {tasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <span style={{ fontSize: "28px" }}>📋</span>
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: "#94a3b8" }}
                   >
-                    <div className={`checkbox ${checked[i] ? "checked" : ""}`}>
-                      {checked[i] && (
-                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </div>
-                    <span
-                      className="flex-1 text-sm"
-                      style={{
-                        color: checked[i] ? "#b8a080" : "#2c2416",
-                        textDecoration: checked[i] ? "line-through" : "none",
-                        fontFamily: "'Montserrat', sans-serif",
-                        transition: "color 0.2s",
-                      }}
+                    No tasks yet
+                  </p>
+                  <p className="text-xs" style={{ color: "#cbd5e1" }}>
+                    Add tasks from the Schedule page
+                  </p>
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {tasks.map((task) => (
+                    <li
+                      key={task._id}
+                      className={`task-row flex items-center gap-3 px-4 py-3 ${
+                        task.done ? "opacity-50" : ""
+                      }`}
+                      onClick={() => handleToggle(task._id)}
                     >
-                      {task.label}
-                    </span>
-                    <span className="badge">{task.due}</span>
-                  </li>
-                ))}
-              </ul>
+                      <div className={`study-check ${task.done ? "checked" : ""}`}>
+                        {task.done && (
+                          <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                            <path
+                              d="M1 4.5L4 7.5L10 1"
+                              stroke="white"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                      <span
+                        className="flex-1 text-sm font-medium"
+                        style={{
+                          color: task.done ? "#94a3b8" : "#1e293b",
+                          textDecoration: task.done ? "line-through" : "none",
+                          transition: "color 0.15s",
+                        }}
+                      >
+                        {task.text}
+                      </span>
+                      <span
+                        className={`pill ${
+                          getDueLabel(task.createdAt) === "Today"
+                            ? "pill-orange"
+                            : getDueLabel(task.createdAt) === "Tomorrow"
+                            ? "pill-blue"
+                            : "pill-slate"
+                        }`}
+                      >
+                        {getDueLabel(task.createdAt)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-              <div className="divider" />
-              <p className="text-xs text-center" style={{ color: "#b8a080", letterSpacing: "1px" }}>
-                Click a task to mark complete
+              <div className="soft-divider" />
+              <div
+                className="flex justify-between text-xs font-semibold mb-2"
+                style={{ color: "#64748b" }}
+              >
+                <span>Completion</span>
+                <span className="text-teal-600">
+                  {doneCount}/{tasks.length} done
+                </span>
+              </div>
+              <div className="prog-track bg-teal-100">
+                <div
+                  className="prog-fill bg-gradient-to-r from-teal-400 to-teal-500"
+                  style={{
+                    width:
+                      tasks.length > 0
+                        ? `${(doneCount / tasks.length) * 100}%`
+                        : "0%",
+                  }}
+                />
+              </div>
+              <p
+                className="text-xs mt-2 text-center"
+                style={{ color: "#94a3b8" }}
+              >
+                Click any task to mark it complete
               </p>
             </div>
 
           </div>
+
+          {/* Focus Tip */}
+          <div
+            className="study-card fade-up delay-4 mt-5 p-5 flex items-center gap-4"
+            style={{
+              background: "linear-gradient(135deg, #eff6ff 0%, #f0fdfa 100%)",
+              border: "1px solid #bfdbfe",
+            }}
+          >
+            <div className="text-3xl">💡</div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#1e3a5f" }}>
+                Focus Tip of the Day
+              </p>
+              <p className="text-sm mt-0.5" style={{ color: "#475569" }}>
+                Try the <strong>Pomodoro technique</strong> — 25 minutes focused
+                study, 5 minutes break. Your brain retains more when it rests
+                regularly.
+              </p>
+            </div>
+          </div>
+
         </div>
       </div>
     </>
