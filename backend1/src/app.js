@@ -22,14 +22,22 @@ import userRouter from "./routes/user.routes.js";
 import chatRouter from "./routes/chat.routes.js";
 import pdfRouter from "./routes/pdf.routes.js";
 import progressRouter from "./routes/progress.routes.js";
-
 import taskRoutes from "./routes/task.routes.js";
+import subjectRoutes from "./routes/subject.routes.js";
+import statsRoutes from "./routes/stats.routes.js";  
+import goalsRoutes from "./routes/goals.routes.js"; 
+import focusSessionRoutes from "./routes/focusSession.routes.js"; 
 
+app.use("/api/v1/focus", focusSessionRoutes); 
+app.use("/api/v1/goals", goalsRoutes);
+app.use("/api/v1/stats", statsRoutes);  
+app.use("/api/v1/subjects", subjectRoutes);
 app.use("/api/v1/tasks", taskRoutes);
 app.use("/api/v1/progress", progressRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/chat", chatRouter);
 app.use("/api/v1/pdf", pdfRouter);
+                 
 
 
 app.use((err, req, res, next) => {
