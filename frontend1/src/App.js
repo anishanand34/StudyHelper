@@ -8,6 +8,7 @@ import Subjects from "./pages/Subjects";
 import AIAssistant from "./pages/AIAssistant";
 import ProfilePage from "./pages/ProfilePage";
  import ProgressPage from "./pages/ProgressPage";
+ import FocusMode from "./pages/FocusMode"
 import { UserProvider } from "./context/UserContext";
 
 function Layout() {
@@ -26,8 +27,8 @@ function Layout() {
         <Route path="/subjects" element={<Subjects />} />
         <Route path="/ai" element={<AIAssistant />} />
         <Route path="/profile" element={<ProfilePage />} />
-       
         <Route path="/progress" element={<ProgressPage />} />
+        <Route path="/focus" element={<FocusMode />} />
       </Routes>
     </>
   );

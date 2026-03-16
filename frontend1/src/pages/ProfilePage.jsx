@@ -1,16 +1,87 @@
+import { useState, useEffect } from "react";
 import { useUser } from "../context/UserContext";
 import { useNavigate } from "react-router-dom";
 
-const stats = [
-  { label: "Study Streak", value: "12", unit: "days", icon: "🔥" },
-  { label: "Subjects", value: "4", unit: "active", icon: "∑" },
-  { label: "This Week", value: "18", unit: "hours", icon: "◈" },
-  { label: "Tasks Done", value: "34", unit: "total", icon: "✦" },
-];
+const BASE = "http://localhost:8000/api/v1";
 
 function ProfilePage() {
-  const { user } = useUser();
-  const navigate = useNavigate();
+  const { user }   = useUser();
+  const navigate   = useNavigate();
+
+  const [subjectCount,      setSubjectCount]      = useState("—");
+  const [taskCount,         setTaskCount]         = useState("—");
+  const [weeklyTasksDone,   setWeeklyTasksDone]   = useState("—");
+  const [weeklyFocusHours,  setWeeklyFocusHours]  = useState("—"); // ← new
+  const [weeklySubjects,    setWeeklySubjects]     = useState("—"); // ← new
+  const [weeklyFocusLabel,  setWeeklyFocusLabel]  = useState("—"); // ← new: "1h 45m" format
+
+  const [goals, setGoals] = useState({
+    weeklyStudyHours:      25,
+    weeklyTasksCompleted:  12,
+    weeklySubjectsCovered: 5,
+  });
+
+  useEffect(() => {
+    // total subjects enrolled
+    fetch(`${BASE}/subjects`)
+      .then((r) => r.json())
+      .then((data) => setSubjectCount(data.length));
+
+    // total + weekly tasks done
+    fetch(`${BASE}/stats`)
+      .then((r) => r.json())
+      .then((data) => {
+        setTaskCount(data.totalTasksDone);
+        setWeeklyTasksDone(data.weeklyTasksDone);
+      });
+
+    // goals from DB
+    fetch(`${BASE}/goals`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && !data.error) {
+          setGoals({
+            weeklyStudyHours:      data.weeklyStudyHours      ?? 25,
+            weeklyTasksCompleted:  data.weeklyTasksCompleted  ?? 12,
+            weeklySubjectsCovered: data.weeklySubjectsCovered ?? 5,
+          });
+        }
+      })
+      .catch(() => {});
+
+    // ← new: this week's focus time + unique subjects from focus sessions
+    fetch(`${BASE}/focus/weekly`)
+      .then((r) => r.json())
+      .then((data) => {
+        const totalSecs = data.totalSeconds || 0;
+
+        // decimal hours for progress bar math  e.g. 1.75
+        setWeeklyFocusHours(parseFloat((totalSecs / 3600).toFixed(2)));
+
+        // readable label for the stat card  e.g. "1h 45m"
+        const h = Math.floor(totalSecs / 3600);
+        const m = Math.floor((totalSecs % 3600) / 60);
+        if (h === 0 && m === 0) setWeeklyFocusLabel("0h");
+        else if (h === 0)       setWeeklyFocusLabel(`${m}m`);
+        else if (m === 0)       setWeeklyFocusLabel(`${h}h`);
+        else                    setWeeklyFocusLabel(`${h}h ${m}m`);
+
+        // unique subjects studied this week
+        setWeeklySubjects(data.uniqueSubjects ?? "—");
+      })
+      .catch(() => {
+        setWeeklyFocusHours(0);
+        setWeeklyFocusLabel("0h");
+        setWeeklySubjects(0);
+      });
+  }, []);
+
+  const stats = [
+    { label: "Study Streak", value: "12",             unit: "days",   icon: "🔥" },
+    { label: "Subjects",     value: subjectCount,      unit: "active", icon: "∑"  },
+    { label: "This Week",    value: weeklyFocusLabel,  unit: "hours",  icon: "◈"  }, // ← live
+    { label: "Tasks Done",   value: taskCount,         unit: "total",  icon: "✦"  },
+  ];
 
   return (
     <>
@@ -22,8 +93,6 @@ function ProfilePage() {
           background: #f0f4f8;
           min-height: 100vh;
         }
-
-        /* Dot-grid */
         .profile-root::before {
           content: '';
           position: fixed; inset: 0;
@@ -33,10 +102,8 @@ function ProfilePage() {
           pointer-events: none;
           z-index: 0;
         }
-
         .display-font { font-family: 'Lora', serif; }
 
-        /* Hero */
         .profile-hero {
           background: #0f172a;
           border-bottom: 1px solid #1e293b;
@@ -57,7 +124,6 @@ function ProfilePage() {
           background-size: 40px 40px;
         }
 
-        /* Avatar */
         .avatar-ring {
           width: 96px; height: 96px; border-radius: 50%;
           background: linear-gradient(135deg, #3b82f6, #14b8a6);
@@ -72,7 +138,6 @@ function ProfilePage() {
           font-size: 36px; color: #60a5fa; overflow: hidden;
         }
 
-        /* Cards */
         .study-card {
           background: #ffffff;
           border: 1px solid #e2e8f0;
@@ -95,7 +160,6 @@ function ProfilePage() {
           background: linear-gradient(90deg, #14b8a6, #2dd4bf);
         }
 
-        /* Stat cards */
         .stat-card {
           background: #ffffff;
           border: 1px solid #e2e8f0;
@@ -117,7 +181,6 @@ function ProfilePage() {
           font-size: 18px; flex-shrink: 0;
         }
 
-        /* Pills */
         .pill {
           font-size: 11px; font-weight: 700; padding: 2px 10px;
           border-radius: 999px; letter-spacing: 0.3px;
@@ -125,10 +188,8 @@ function ProfilePage() {
         .pill-blue  { background: #dbeafe; color: #1d4ed8; }
         .pill-teal  { background: #ccfbf1; color: #0f766e; }
 
-        /* Divider */
         .soft-divider { height: 1px; background: #f1f5f9; margin: 14px 0; }
 
-        /* Info rows */
         .info-row {
           display: flex; align-items: center;
           padding: 11px 0;
@@ -143,11 +204,9 @@ function ProfilePage() {
           font-size: 13px; font-weight: 600; color: #1e293b;
         }
 
-        /* Progress bars */
         .prog-track { width: 100%; height: 5px; border-radius: 999px; background: #e0f2fe; margin-top: 6px; }
         .prog-fill  { height: 5px; border-radius: 999px; background: linear-gradient(90deg, #3b82f6, #14b8a6); transition: width 0.8s ease; }
 
-        /* Back button */
         .back-btn {
           display: inline-flex; align-items: center; gap: 6px;
           font-size: 12px; font-weight: 700;
@@ -158,7 +217,6 @@ function ProfilePage() {
         }
         .back-btn:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
 
-        /* Animations */
         .fade-up { animation: fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }
         .delay-1 { animation-delay: 0.08s; }
         .delay-2 { animation-delay: 0.16s; }
@@ -180,7 +238,6 @@ function ProfilePage() {
             </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
-              {/* Avatar */}
               <div className="avatar-ring">
                 <div className="avatar-inner">
                   {user?.avatar
@@ -189,7 +246,6 @@ function ProfilePage() {
                 </div>
               </div>
 
-              {/* Name + meta */}
               <div>
                 <h1 className="display-font" style={{ fontSize: "30px", fontWeight: 600, color: "#f1f5f9", margin: 0, letterSpacing: "-0.3px" }}>
                   {user?.fullName || "Student"}
@@ -205,7 +261,7 @@ function ProfilePage() {
                     Student
                   </span>
                   <span style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "999px", background: "rgba(148,163,184,0.1)", color: "#94a3b8", border: "1px solid rgba(148,163,184,0.15)", fontWeight: 700 }}>
-                    Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—" }
+                    Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—"}
                   </span>
                 </div>
               </div>
@@ -226,8 +282,12 @@ function ProfilePage() {
                     <div className="display-font" style={{ fontSize: "26px", color: "#3b82f6", lineHeight: 1, fontWeight: 600 }}>
                       {s.value}
                     </div>
-                    <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: "#94a3b8", marginTop: "2px" }}>{s.label}</div>
-                    <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 500 }}>{s.unit}</div>
+                    <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: "#94a3b8", marginTop: "2px" }}>
+                      {s.label}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 500 }}>
+                      {s.unit}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -247,10 +307,10 @@ function ProfilePage() {
 
                 {[
                   { label: "Full Name", value: user?.fullName || "—" },
-                  { label: "Email", value: user?.email || "—" },
-                  { label: "Role", value: "Student" },
-                  { label: "Joined", value: user?.createdAt ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—" },
-                  { label: "Status", value: "Active" },
+                  { label: "Email",     value: user?.email    || "—" },
+                  { label: "Role",      value: "Student"            },
+                  { label: "Joined",    value: user?.createdAt ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—" },
+                  { label: "Status",    value: "Active"             },
                 ].map((row) => (
                   <div key={row.label} className="info-row">
                     <span className="info-label">{row.label}</span>
@@ -259,7 +319,7 @@ function ProfilePage() {
                 ))}
               </div>
 
-              {/* Study Goals */}
+              {/* Study Goals — all three values now live from DB */}
               <div className="study-card accent-teal fade-up delay-2" style={{ padding: "24px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
                   <h3 className="display-font" style={{ fontSize: "18px", fontWeight: 600, color: "#0f172a", margin: 0 }}>
@@ -270,23 +330,47 @@ function ProfilePage() {
                 <div className="soft-divider" />
 
                 {[
-                  { label: "Study Hours", current: 18, goal: 25 },
-                  { label: "Tasks Completed", current: 8, goal: 12 },
-                  { label: "Subjects Covered", current: 4, goal: 5 },
+                  {
+                    label:   "Study Hours",
+                    current: weeklyFocusHours,            // ← live from focus sessions
+                    goal:    goals.weeklyStudyHours,
+                    display: weeklyFocusLabel,            // ← readable label e.g. "1h 45m"
+                  },
+                  {
+                    label:   "Tasks This Week",
+                    current: weeklyTasksDone,
+                    goal:    goals.weeklyTasksCompleted,
+                    display: weeklyTasksDone,
+                  },
+                  {
+                    label:   "Subjects Covered",
+                    current: weeklySubjects,              // ← live: unique subjects this week
+                    goal:    goals.weeklySubjectsCovered,
+                    display: weeklySubjects,
+                  },
                 ].map((g) => (
                   <div key={g.label} style={{ marginBottom: "18px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#475569" }}>{g.label}</span>
-                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#14b8a6" }}>{g.current} / {g.goal}</span>
+                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#475569" }}>
+                        {g.label}
+                      </span>
+                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#14b8a6" }}>
+                        {g.display} / {g.goal}
+                      </span>
                     </div>
                     <div className="prog-track">
-                      <div className="prog-fill" style={{ width: `${Math.min((g.current / g.goal) * 100, 100)}%` }} />
+                      <div
+                        className="prog-fill"
+                        style={{
+                          width: `${Math.min((Number(g.current) / Number(g.goal)) * 100, 100)}%`,
+                        }}
+                      />
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
 
+            </div>
           </div>
         </div>
       </div>

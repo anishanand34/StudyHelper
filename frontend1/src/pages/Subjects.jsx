@@ -1,35 +1,52 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-const defaultSubjects = [
-  { name: "Mathematics", icon: "∑", sessions: 14, progress: 72 },
-  { name: "Data Structures", icon: "⬡", sessions: 9, progress: 45 },
-  { name: "Operating Systems", icon: "⚙", sessions: 20, progress: 88 },
-];
+const BASE = "http://localhost:8000/api/v1";
+
+const getSubjects = () => fetch(`${BASE}/subjects`).then((r) => r.json());
+
+const addSubjectAPI = (name, icon) =>
+  fetch(`${BASE}/subjects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, icon }),
+  }).then((r) => r.json());
+
+const deleteSubjectAPI = (id) =>
+  fetch(`${BASE}/subjects/${id}`, { method: "DELETE" }).then((r) => r.json());
 
 const icons = ["∑", "⚛", "⬡", "✦", "⚙", "📐", "🧪", "📖", "🌍", "💡"];
 
 function Subjects() {
   const [subject, setSubject] = useState("");
-  const [subjects, setSubjects] = useState(defaultSubjects);
+  const [subjects, setSubjects] = useState([]);
   const [iconIndex, setIconIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const addSubject = () => {
-    if (subject.trim() !== "") {
-      setSubjects([...subjects, {
-        name: subject,
-        icon: icons[iconIndex % icons.length],
-        sessions: 0,
-        progress: 0,
-      }]);
-      setSubject("");
-      setIconIndex(i => i + 1);
-    }
+  // Load subjects from DB on mount
+  useEffect(() => {
+    getSubjects().then((data) => {
+      setSubjects(data);
+      setLoading(false);
+    });
+  }, []);
+
+  const addSubject = async () => {
+    if (!subject.trim()) return;
+    const newSubject = await addSubjectAPI(
+      subject.trim(),
+      icons[iconIndex % icons.length]
+    );
+    setSubjects((prev) => [...prev, newSubject]);
+    setSubject("");
+    setIconIndex((i) => i + 1);
   };
 
-  const deleteSubject = (i) =>
-    setSubjects(subjects.filter((_, idx) => idx !== i));
+  const deleteSubject = async (id) => {
+    await deleteSubjectAPI(id);
+    setSubjects((prev) => prev.filter((s) => s._id !== id));
+  };
 
   const colors = [
     { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8", bar: ["#3b82f6", "#60a5fa"] },
@@ -121,7 +138,6 @@ function Subjects() {
         .add-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(59,130,246,0.35); }
         .add-btn:active { transform: translateY(0); }
 
-        /* Back button */
         .back-btn {
           display: inline-flex; align-items: center; gap: 6px;
           background: #ffffff; border: 1.5px solid #e2e8f0;
@@ -221,19 +237,19 @@ function Subjects() {
 
           {/* Header */}
           <div className="fade-up mb-8">
-
-            {/* Back button */}
             <div style={{ marginBottom: "16px" }}>
               <button className="back-btn" onClick={() => navigate(-1)}>
                 <span className="back-arrow">←</span>
                 Back
               </button>
             </div>
-
             <div className="greeting-badge mb-4">
               <span>📚</span> My Subjects
             </div>
-            <h1 className="display-font text-4xl font-semibold" style={{ color: "#0f172a", letterSpacing: "-0.5px" }}>
+            <h1
+              className="display-font text-4xl font-semibold"
+              style={{ color: "#0f172a", letterSpacing: "-0.5px" }}
+            >
               Enrolled Subjects
             </h1>
             <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
@@ -244,7 +260,12 @@ function Subjects() {
           {/* Add Subject Card */}
           <div className="study-card accent-blue p-6 mb-8 fade-up delay-1">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="display-font text-xl font-semibold" style={{ color: "#0f172a" }}>Add New Subject</h3>
+              <h3
+                className="display-font text-xl font-semibold"
+                style={{ color: "#0f172a" }}
+              >
+                Add New Subject
+              </h3>
               <span className="pill pill-blue">+ Enroll</span>
             </div>
             <div className="soft-divider" />
@@ -264,14 +285,19 @@ function Subjects() {
 
             {/* Icon picker */}
             <div>
-              <p className="text-xs mt-4 mb-2 font-bold uppercase" style={{ color: "#94a3b8", letterSpacing: "0.8px" }}>
+              <p
+                className="text-xs mt-4 mb-2 font-bold uppercase"
+                style={{ color: "#94a3b8", letterSpacing: "0.8px" }}
+              >
                 Pick an icon
               </p>
               <div className="flex gap-2 flex-wrap">
                 {icons.map((ic, i) => (
                   <button
                     key={i}
-                    className={`icon-btn ${iconIndex % icons.length === i ? "selected" : ""}`}
+                    className={`icon-btn ${
+                      iconIndex % icons.length === i ? "selected" : ""
+                    }`}
                     onClick={() => setIconIndex(i)}
                   >
                     {ic}
@@ -284,40 +310,90 @@ function Subjects() {
           {/* Subjects Grid */}
           <div className="fade-up delay-2">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="display-font text-xl font-semibold" style={{ color: "#0f172a" }}>All Subjects</h3>
+              <h3
+                className="display-font text-xl font-semibold"
+                style={{ color: "#0f172a" }}
+              >
+                All Subjects
+              </h3>
               <span className="pill pill-blue">{subjects.length} total</span>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "14px" }}>
-              {subjects.length === 0 ? (
-                <div style={{ gridColumn: "1 / -1" }} className="flex flex-col items-center justify-center py-12 gap-2">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {loading ? (
+                <div
+                  style={{ gridColumn: "1 / -1" }}
+                  className="flex flex-col items-center justify-center py-12 gap-2"
+                >
+                  <span style={{ fontSize: "32px" }}>⏳</span>
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: "#94a3b8" }}
+                  >
+                    Loading subjects...
+                  </p>
+                </div>
+              ) : subjects.length === 0 ? (
+                <div
+                  style={{ gridColumn: "1 / -1" }}
+                  className="flex flex-col items-center justify-center py-12 gap-2"
+                >
                   <span style={{ fontSize: "32px" }}>📚</span>
-                  <p className="text-sm font-semibold" style={{ color: "#94a3b8" }}>No subjects yet</p>
-                  <p className="text-xs" style={{ color: "#cbd5e1" }}>Add one above to get started</p>
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: "#94a3b8" }}
+                  >
+                    No subjects yet
+                  </p>
+                  <p className="text-xs" style={{ color: "#cbd5e1" }}>
+                    Add one above to get started
+                  </p>
                 </div>
               ) : (
                 subjects.map((s, i) => {
                   const c = colors[i % colors.length];
                   return (
                     <div
-                      key={i}
+                      key={s._id}
                       className="subject-card"
                       style={{ borderTop: `3px solid ${c.border}` }}
                     >
-                      <button className="del-btn" onClick={() => deleteSubject(i)}>×</button>
+                      <button
+                        className="del-btn"
+                        onClick={() => deleteSubject(s._id)}
+                      >
+                        ×
+                      </button>
 
                       <div
                         className="subject-icon-wrap"
-                        style={{ background: c.bg, border: `1px solid ${c.border}` }}
+                        style={{
+                          background: c.bg,
+                          border: `1px solid ${c.border}`,
+                        }}
                       >
-                        <span style={{ color: c.text, fontSize: "22px" }}>{s.icon}</span>
+                        <span style={{ color: c.text, fontSize: "22px" }}>
+                          {s.icon}
+                        </span>
                       </div>
 
-                      <div className="display-font text-lg font-semibold mb-1" style={{ color: "#0f172a" }}>
+                      <div
+                        className="display-font text-lg font-semibold mb-1"
+                        style={{ color: "#0f172a" }}
+                      >
                         {s.name}
                       </div>
 
-                      <div className="text-xs font-semibold mb-3" style={{ color: "#94a3b8" }}>
+                      <div
+                        className="text-xs font-semibold mb-3"
+                        style={{ color: "#94a3b8" }}
+                      >
                         {s.sessions} session{s.sessions !== 1 ? "s" : ""}
                       </div>
 
@@ -332,8 +408,18 @@ function Subjects() {
                       </div>
 
                       <div className="flex justify-between mt-2">
-                        <span className="text-xs font-semibold" style={{ color: "#94a3b8" }}>Progress</span>
-                        <span className="text-xs font-bold" style={{ color: c.text }}>{s.progress}%</span>
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color: "#94a3b8" }}
+                        >
+                          Progress
+                        </span>
+                        <span
+                          className="text-xs font-bold"
+                          style={{ color: c.text }}
+                        >
+                          {s.progress}%
+                        </span>
                       </div>
                     </div>
                   );

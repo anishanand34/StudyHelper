@@ -1,12 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "../context/UserContext";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
+const BASE = "http://localhost:8000/api/v1";
+
+const getSubjectCount = () =>
+  fetch(`${BASE}/subjects`)
+    .then((r) => r.json())
+    .then((data) => data.length);
+
+// ← new: fetch this week's focus sessions
+const getWeeklyFocusTime = () =>
+  fetch(`${BASE}/focus/weekly`)
+    .then((r) => r.json());
+
 const navLinks = [
-  { to: "/dashboard", label: "Dashboard", icon: "⬡" },
-  { to: "/progress", label: "My Progress", icon: "📊" },
-  { to: "/schedule", label: "Schedule", icon: "◈" },
-  { to: "/ai", label: "AI Assistant", icon: "✦" },
+  { to: "/dashboard", label: "Dashboard",   icon: "⬡" },
+  { to: "/focus",     label: "Focus Mode",  icon: "⏱" },
+  { to: "/progress",  label: "My Progress", icon: "📊" },
+  { to: "/schedule",  label: "Schedule",    icon: "◈" },
+  { to: "/ai",        label: "AI Assistant",icon: "✦" },
 ];
 
 const modalOverlay = {
@@ -27,9 +40,9 @@ const modalAccentLine = {
   borderRadius: "0 0 4px 4px", background: "linear-gradient(90deg, #3b82f6, #14b8a6)",
 };
 
-const modalTitle  = { fontFamily: "'Lora', serif", fontSize: "22px", color: "#0f172a", margin: 0, fontWeight: 600 };
-const modalSub    = { color: "#64748b", fontSize: "13px", margin: "4px 0 0" };
-const labelStyle  = { display: "block", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", color: "#64748b", marginBottom: "7px" };
+const modalTitle = { fontFamily: "'Lora', serif", fontSize: "22px", color: "#0f172a", margin: 0, fontWeight: 600 };
+const modalSub   = { color: "#64748b", fontSize: "13px", margin: "4px 0 0" };
+const labelStyle = { display: "block", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", color: "#64748b", marginBottom: "7px" };
 
 const inputBase = {
   width: "100%", padding: "11px 14px", borderRadius: "10px",
@@ -65,83 +78,11 @@ const msgStyle = (ok) => ({
   border: `1px solid ${ok ? "#86efac" : "#fca5a5"}`,
 });
 
-// ── Notifications Modal ───────────────────────────────────────────────────────
-
-const mockNotifications = [
-  { id: 1, icon: "🔥", title: "Study Streak!", message: "You're on a 12-day streak. Keep it up!", time: "Just now", unread: true },
-  { id: 2, icon: "✦", title: "AI Assistant", message: "Your quiz results are ready to review.", time: "2h ago", unread: true },
-  { id: 3, icon: "📅", title: "Schedule Reminder", message: "Math revision starts in 30 minutes.", time: "3h ago", unread: false },
-  { id: 4, icon: "∑", title: "Subject Update", message: "Physics notes have been updated.", time: "Yesterday", unread: false },
-  { id: 5, icon: "✓", title: "Task Complete", message: "You completed 8 tasks this week!", time: "2 days ago", unread: false },
-  { id: 6, icon: "📖", title: "New Material", message: "Chemistry chapter 5 notes are available.", time: "2 days ago", unread: false },
-  { id: 7, icon: "🧪", title: "Quiz Reminder", message: "Biology quiz is scheduled for tomorrow.", time: "3 days ago", unread: false },
-  { id: 8, icon: "⭐", title: "Achievement", message: "You earned the 'Consistent Learner' badge!", time: "4 days ago", unread: false },
-  { id: 9, icon: "📊", title: "Weekly Report", message: "Your weekly progress report is ready.", time: "5 days ago", unread: false },
-  { id: 10, icon: "🎯", title: "Goal Reached", message: "You hit your 25-hour study goal this week!", time: "1 week ago", unread: false },
-];
-
-function NotificationsModal({ onClose }) {
-  const [notifications, setNotifications] = useState(mockNotifications);
-  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-  const markRead = (id) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
-  const unreadCount = notifications.filter(n => n.unread).length;
-
-  return (
-    <div style={modalOverlay}>
-      <div style={{ ...modalBox, maxWidth: "460px", padding: "0", overflow: "hidden" }}>
-        <div style={modalAccentLine} />
-        <div style={{ padding: "24px 24px 16px", borderBottom: "1px solid #f1f5f9" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <h2 style={modalTitle}>Notifications</h2>
-              <p style={modalSub}>{unreadCount > 0 ? `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}` : "You're all caught up!"}</p>
-            </div>
-            {unreadCount > 0 && (
-              <span style={{ fontSize: "11px", padding: "2px 10px", borderRadius: "999px", background: "#dbeafe", color: "#1d4ed8", border: "1px solid #bfdbfe", fontWeight: 700 }}>
-                {unreadCount} new
-              </span>
-            )}
-          </div>
-          {unreadCount > 0 && (
-            <button onClick={markAllRead} style={{ marginTop: "10px", fontSize: "11px", fontWeight: 700, color: "#3b82f6", background: "none", border: "none", cursor: "pointer", fontFamily: "'Nunito', sans-serif", padding: 0 }}>
-              Mark all as read
-            </button>
-          )}
-        </div>
-        <div style={{ maxHeight: "340px", overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "#e2e8f0 transparent" }}>
-          {notifications.map((n, i) => (
-            <div key={n.id} onClick={() => markRead(n.id)}
-              style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "14px 24px", borderBottom: i < notifications.length - 1 ? "1px solid #f8fafc" : "none", background: n.unread ? "#f0f9ff" : "#ffffff", cursor: "pointer", transition: "background 0.15s" }}
-              onMouseEnter={e => e.currentTarget.style.background = n.unread ? "#e0f2fe" : "#f8fafc"}
-              onMouseLeave={e => e.currentTarget.style.background = n.unread ? "#f0f9ff" : "#ffffff"}
-            >
-              <div style={{ width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0, background: n.unread ? "#dbeafe" : "#f1f5f9", border: `1px solid ${n.unread ? "#bfdbfe" : "#e2e8f0"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px" }}>
-                {n.icon}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{n.title}</span>
-                  <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 600, flexShrink: 0 }}>{n.time}</span>
-                </div>
-                <p style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 0", fontWeight: 500, lineHeight: 1.5 }}>{n.message}</p>
-              </div>
-              {n.unread && <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#3b82f6", flexShrink: 0, marginTop: "5px" }} />}
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: "16px 24px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ ...cancelBtnStyle, flex: "none", padding: "10px 24px" }}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Other Modals ──────────────────────────────────────────────────────────────
+// ── Modals ────────────────────────────────────────────────────────────────────
 
 function UpdateAvatarModal({ onClose }) {
   const { user, setUser } = useUser();
-  const [avatar, setAvatar] = useState(null);
+  const [avatar,  setAvatar]  = useState(null);
   const [preview, setPreview] = useState(user?.avatar || null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -158,7 +99,7 @@ function UpdateAvatarModal({ onClose }) {
     try {
       const formData = new FormData();
       formData.append("avatar", avatar);
-      const res = await fetch("http://localhost:8000/api/v1/users/avatar", { method: "PATCH", credentials: "include", body: formData });
+      const res  = await fetch("http://localhost:8000/api/v1/users/avatar", { method: "PATCH", credentials: "include", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to update avatar");
       setUser(data.data);
@@ -199,7 +140,7 @@ function UpdateAvatarModal({ onClose }) {
 }
 
 function ChangePasswordModal({ onClose }) {
-  const [form, setForm] = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
+  const [form,    setForm]    = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [focused, setFocused] = useState("");
@@ -211,7 +152,7 @@ function ChangePasswordModal({ onClose }) {
     if (form.newPassword !== form.confirmPassword) { setMessage("❌ New passwords do not match"); return; }
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/users/changepassword", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ oldPassword: form.oldPassword, newPassword: form.newPassword }) });
+      const res  = await fetch("http://localhost:8000/api/v1/users/changepassword", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ oldPassword: form.oldPassword, newPassword: form.newPassword }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to change password");
       setMessage("✓ Password changed successfully");
@@ -230,9 +171,9 @@ function ChangePasswordModal({ onClose }) {
         </div>
         <form onSubmit={handleSubmit}>
           {[
-            { label: "Current Password", key: "oldPassword", placeholder: "Enter current password" },
-            { label: "New Password", key: "newPassword", placeholder: "Enter new password" },
-            { label: "Confirm New Password", key: "confirmPassword", placeholder: "Confirm new password" },
+            { label: "Current Password",      key: "oldPassword",     placeholder: "Enter current password" },
+            { label: "New Password",           key: "newPassword",     placeholder: "Enter new password" },
+            { label: "Confirm New Password",   key: "confirmPassword", placeholder: "Confirm new password" },
           ].map(({ label, key, placeholder }) => (
             <div key={key} style={{ marginBottom: "14px" }}>
               <label style={labelStyle}>{label}</label>
@@ -255,7 +196,7 @@ function ChangePasswordModal({ onClose }) {
 
 function UpdateAccountModal({ onClose }) {
   const { user, setUser } = useUser();
-  const [form, setForm] = useState({ fullName: user?.fullName || "", email: user?.email || "" });
+  const [form,    setForm]    = useState({ fullName: user?.fullName || "", email: user?.email || "" });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [focused, setFocused] = useState("");
@@ -265,7 +206,7 @@ function UpdateAccountModal({ onClose }) {
     e.preventDefault();
     setMessage(""); setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/users/update-account", { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ fullName: form.fullName, email: form.email }) });
+      const res  = await fetch("http://localhost:8000/api/v1/users/update-account", { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ fullName: form.fullName, email: form.email }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to update account");
       setUser(data.data);
@@ -309,18 +250,139 @@ function UpdateAccountModal({ onClose }) {
   );
 }
 
+function GoalsModal({ onClose }) {
+  const [form, setForm] = useState({
+    dailyStudyHours:       "",
+    weeklyStudyHours:      "",
+    weeklyTasksCompleted:  "",
+    weeklySubjectsCovered: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [focused, setFocused] = useState("");
+  const iStyle = (n) => focused === n ? focusedInput : inputBase;
+
+  useEffect(() => {
+    fetch(`${BASE}/goals`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && !data.error) {
+          setForm({
+            dailyStudyHours:       data.dailyStudyHours       ?? "",
+            weeklyStudyHours:      data.weeklyStudyHours      ?? "",
+            weeklyTasksCompleted:  data.weeklyTasksCompleted  ?? "",
+            weeklySubjectsCovered: data.weeklySubjectsCovered ?? "",
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage(""); setLoading(true);
+    try {
+      const res  = await fetch(`${BASE}/goals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dailyStudyHours:       Number(form.dailyStudyHours),
+          weeklyStudyHours:      Number(form.weeklyStudyHours),
+          weeklyTasksCompleted:  Number(form.weeklyTasksCompleted),
+          weeklySubjectsCovered: Number(form.weeklySubjectsCovered),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save goals");
+      setMessage("✓ Goals saved successfully");
+      setTimeout(onClose, 1500);
+    } catch (err) { setMessage("❌ " + err.message); }
+    finally { setLoading(false); }
+  };
+
+  const fields = [
+    { label: "Daily Study Goal",         key: "dailyStudyHours",       placeholder: "e.g. 4",  unit: "hours / day"  },
+    { label: "Weekly Study Goal",        key: "weeklyStudyHours",      placeholder: "e.g. 25", unit: "hours / week" },
+    { label: "Weekly Tasks to Complete", key: "weeklyTasksCompleted",  placeholder: "e.g. 12", unit: "tasks / week" },
+    { label: "Weekly Subjects to Cover", key: "weeklySubjectsCovered", placeholder: "e.g. 5",  unit: "subjects"     },
+  ];
+
+  return (
+    <div style={modalOverlay}>
+      <div style={modalBox}>
+        <div style={modalAccentLine} />
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={modalTitle}>Set Goals</h2>
+          <p style={modalSub}>Define your weekly and daily study targets</p>
+        </div>
+        <form onSubmit={handleSubmit}>
+          {fields.map(({ label, key, placeholder, unit }) => (
+            <div key={key} style={{ marginBottom: "14px" }}>
+              <label style={labelStyle}>{label}</label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type="number" min="0"
+                  value={form[key]} placeholder={placeholder}
+                  onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  onFocus={() => setFocused(key)} onBlur={() => setFocused("")}
+                  style={{ ...iStyle(key), paddingRight: "90px" }}
+                />
+                <span style={{
+                  position: "absolute", right: "12px", top: "50%",
+                  transform: "translateY(-50%)",
+                  fontSize: "11px", fontWeight: 700, color: "#94a3b8",
+                  pointerEvents: "none", fontFamily: "'Nunito', sans-serif",
+                }}>
+                  {unit}
+                </span>
+              </div>
+            </div>
+          ))}
+          {message && <div style={msgStyle(message.startsWith("✓"))}>{message}</div>}
+          <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+            <button type="button" onClick={onClose} style={cancelBtnStyle}>Cancel</button>
+            <button type="submit" disabled={loading} style={submitBtnStyle(loading)}>
+              {loading ? "Saving..." : "Save Goals"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Navbar ────────────────────────────────────────────────────────────────────
 
 function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, setUser } = useUser();
+
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showUpdateAccount, setShowUpdateAccount] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [showUpdateAvatar, setShowUpdateAvatar] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [settingsOpen,       setSettingsOpen]       = useState(false);
+  const [showUpdateAccount,  setShowUpdateAccount]  = useState(false);
+  const [dropdownOpen,       setDropdownOpen]       = useState(false);
+  const [showUpdateAvatar,   setShowUpdateAvatar]   = useState(false);
+  const [showGoals,          setShowGoals]          = useState(false);
+  const [subjectCount,       setSubjectCount]       = useState("—");
+  const [weeklyTime,         setWeeklyTime]         = useState("0h");  // ← new
+
+  useEffect(() => {
+    getSubjectCount().then((count) => setSubjectCount(count));
+
+    // ← new: fetch this week's total focus time
+    getWeeklyFocusTime()
+      .then((data) => {
+        const totalSecs = data.totalSeconds || 0;
+        const h = Math.floor(totalSecs / 3600);
+        const m = Math.floor((totalSecs % 3600) / 60);
+        if (h === 0 && m === 0) setWeeklyTime("0h");
+        else if (h === 0)       setWeeklyTime(`${m}m`);
+        else if (m === 0)       setWeeklyTime(`${h}h`);
+        else                    setWeeklyTime(`${h}h ${m}m`);
+      })
+      .catch(() => setWeeklyTime("0h"));
+  }, []);
 
   const handleLogout = async () => {
     await fetch("http://localhost:8000/api/v1/users/logout", { method: "POST", credentials: "include" });
@@ -358,7 +420,6 @@ function Navbar() {
           max-width: 1100px; margin: 0 auto; padding: 0 28px;
           display: flex; align-items: center; justify-content: space-between; height: 64px;
         }
-
         .navbar-brand {
           font-family: 'Lora', serif; font-size: 20px; font-weight: 600;
           color: #0f172a; text-decoration: none; letter-spacing: -0.3px;
@@ -372,7 +433,6 @@ function Navbar() {
           font-size: 16px; color: #ffffff;
           box-shadow: 0 2px 8px rgba(59,130,246,0.3);
         }
-
         .nav-links {
           display: flex; align-items: center; gap: 2px;
           background: #f8fafc; border: 1px solid #e2e8f0;
@@ -398,7 +458,6 @@ function Navbar() {
           background: #dbeafe; color: #1d4ed8;
           border: 1px solid #bfdbfe; letter-spacing: 0.5px; font-weight: 700;
         }
-
         .account-btn {
           display: flex; align-items: center; gap: 10px;
           padding: 5px 12px 5px 5px;
@@ -413,7 +472,6 @@ function Navbar() {
         .account-chevron { font-size: 9px; color: #94a3b8; transition: transform 0.25s; margin-left: 2px; }
         .account-chevron.open { transform: rotate(180deg); }
         .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; border: 2px solid #ffffff; position: absolute; bottom: 0; right: 0; }
-
         .dropdown {
           position: absolute; top: calc(100% + 10px); right: 0; width: 272px;
           background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
@@ -435,13 +493,11 @@ function Navbar() {
         }
         .dropdown-username { font-family: 'Lora', serif; font-size: 16px; color: #0f172a; font-weight: 600; line-height: 1.2; }
         .dropdown-email { font-size: 11px; color: #94a3b8; margin-top: 2px; }
-
         .dropdown-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid #f1f5f9; }
         .stat-cell { padding: 12px 8px; text-align: center; border-right: 1px solid #f1f5f9; }
         .stat-cell:last-child { border-right: none; }
         .stat-val { font-family: 'Lora', serif; font-size: 18px; color: #3b82f6; line-height: 1; font-weight: 600; }
         .stat-lbl { font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; font-weight: 700; }
-
         .dropdown-menu { padding: 6px; }
         .dropdown-item {
           display: flex; align-items: center; gap: 10px;
@@ -473,7 +529,6 @@ function Navbar() {
             StudyHelper
           </Link>
 
-          {/* Nav links: Dashboard → My Progress → Schedule → AI Assistant */}
           <div className="nav-links">
             {navLinks.map((link, i) => {
               const isActive = location.pathname === link.to;
@@ -520,8 +575,13 @@ function Navbar() {
                   </div>
                 </div>
 
+                {/* ← weeklyTime now live from focus sessions DB */}
                 <div className="dropdown-stats">
-                  {[{ val: "12", lbl: "Streak" }, { val: "4", lbl: "Subjects" }, { val: "18h", lbl: "This Week" }].map((s) => (
+                  {[
+                    { val: "12",         lbl: "Streak"    },
+                    { val: subjectCount, lbl: "Subjects"  },
+                    { val: weeklyTime,   lbl: "This Week" },
+                  ].map((s) => (
                     <div key={s.lbl} className="stat-cell">
                       <div className="stat-val">{s.val}</div>
                       <div className="stat-lbl">{s.lbl}</div>
@@ -529,22 +589,23 @@ function Navbar() {
                   ))}
                 </div>
 
-                {/* Dropdown menu: Profile → Notifications → Subjects → Settings → Sign Out */}
                 <div className="dropdown-menu">
                   <Link to="/profile" className="dropdown-item" onClick={closeAll}>
                     <div className="dropdown-item-icon">◈</div>
                     My Profile
                   </Link>
 
-                  <button className="dropdown-item" onClick={() => { closeAll(); setShowNotifications(true); }}>
-                    <div className="dropdown-item-icon">🔔</div>
-                    Notifications
-                  </button>
+                  {/* ← Notifications removed */}
 
                   <Link to="/subjects" className="dropdown-item" onClick={closeAll}>
                     <div className="dropdown-item-icon">∑</div>
                     Subjects
                   </Link>
+
+                  <button className="dropdown-item" onClick={() => { closeAll(); setShowGoals(true); }}>
+                    <div className="dropdown-item-icon">🎯</div>
+                    Goals
+                  </button>
 
                   <div style={{ position: "relative" }}>
                     <button className="dropdown-item" onClick={() => setSettingsOpen(!settingsOpen)}>
@@ -585,10 +646,10 @@ function Navbar() {
       </nav>
 
       {dropdownOpen && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setDropdownOpen(false)} />}
-      {showUpdateAccount && <UpdateAccountModal onClose={() => setShowUpdateAccount(false)} />}
+      {showUpdateAccount  && <UpdateAccountModal  onClose={() => setShowUpdateAccount(false)}  />}
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
-      {showUpdateAvatar && <UpdateAvatarModal onClose={() => setShowUpdateAvatar(false)} />}
-      {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} />}
+      {showUpdateAvatar   && <UpdateAvatarModal   onClose={() => setShowUpdateAvatar(false)}   />}
+      {showGoals          && <GoalsModal          onClose={() => setShowGoals(false)}          />}
     </>
   );
 }
