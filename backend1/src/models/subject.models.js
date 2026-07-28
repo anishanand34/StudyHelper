@@ -1,7 +1,16 @@
 import mongoose from "mongoose";
 
+
+
 const subjectSchema = new mongoose.Schema(
   {
+
+      
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,        // 👈 ADD THIS
+    },
     name: {
       type: String,
       required: [true, "Subject name is required"],

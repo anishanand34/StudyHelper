@@ -2,11 +2,14 @@ import { useState, useEffect } from "react";
 
 const BASE = "http://localhost:8000/api/v1";
 
-const getTasks         = () => fetch(`${BASE}/tasks`).then((r) => r.json());
-const getSubjects      = () => fetch(`${BASE}/subjects`).then((r) => r.json());
-const toggleTask       = (id) => fetch(`${BASE}/tasks/${id}/toggle`, { method: "PATCH" }).then((r) => r.json());
-const getGoals         = () => fetch(`${BASE}/goals`).then((r) => r.json());
-const getTodaySessions = () => fetch(`${BASE}/focus`).then((r) => r.json()); // ← new
+// ✅ Replace the top 5 fetch functions with these
+const getToken = () => localStorage.getItem("accessToken");
+
+const getTasks         = () => fetch(`${BASE}/tasks`,   { headers: { Authorization: `Bearer ${getToken()}` } }).then((r) => r.json());
+const getSubjects      = () => fetch(`${BASE}/subjects`, { headers: { Authorization: `Bearer ${getToken()}` } }).then((r) => r.json());
+const toggleTask       = (id) => fetch(`${BASE}/tasks/${id}/toggle`, { method: "PATCH", headers: { Authorization: `Bearer ${getToken()}` } }).then((r) => r.json());
+const getGoals         = () => fetch(`${BASE}/goals`,   { headers: { Authorization: `Bearer ${getToken()}` } }).then((r) => r.json());
+const getTodaySessions = () => fetch(`${BASE}/focus`,   { headers: { Authorization: `Bearer ${getToken()}` } }).then((r) => r.json());
 
 const subjectColors = [
   { color: "bg-blue-400",   light: "bg-blue-100",   text: "text-blue-600"   },
@@ -23,14 +26,14 @@ function Dashboard() {
   const [goals,         setGoals]         = useState({ dailyStudyHours: 6 });
   const [focusSessions, setFocusSessions] = useState([]); // ← new
 
-  useEffect(() => {
-    getTasks().then((data)         => setTasks(data));
-    getSubjects().then((data)      => setSubjects(data));
-    getTodaySessions().then((data) => setFocusSessions(data)); // ← new
-    getGoals()
-      .then((data) => { if (data && !data.error) setGoals(data); })
-      .catch(() => {});
-  }, []);
+useEffect(() => {
+  getTasks().then((data)         => setTasks(Array.isArray(data) ? data : []));
+  getSubjects().then((data)      => setSubjects(Array.isArray(data) ? data : []));
+  getTodaySessions().then((data) => setFocusSessions(Array.isArray(data) ? data : []));
+  getGoals()
+    .then((data) => { if (data && !data.error) setGoals(data); })
+    .catch(() => {});
+}, []);
 
   // ── compute today's study time from real focus sessions ──
   const totalSecondsToday = focusSessions.reduce((acc, s) => acc + s.duration, 0);

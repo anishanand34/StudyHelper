@@ -4,11 +4,12 @@ import {
   createSubject,
   deleteSubject,
 } from "../controllers/subject.controller.js";
+import { verifyJWT } from "../middlewares/auth.middleware.js"; // 👈 import your auth middleware
 
 const router = express.Router();
 
-router.get("/", getAllSubjects);
-router.post("/", createSubject);
-router.delete("/:id", deleteSubject);
+router.get("/", verifyJWT, getAllSubjects);       // 👈 add authMiddleware
+router.post("/", verifyJWT, createSubject);      // 👈 add authMiddleware
+router.delete("/:id", verifyJWT, deleteSubject); // 👈 add authMiddleware
 
 export default router;

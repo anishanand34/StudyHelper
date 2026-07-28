@@ -21,15 +21,21 @@ function Auth() {
 
     try {
       if (isLogin) {
-        const res = await fetch("http://localhost:8000/api/v1/users/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ username, password }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Login failed");
-        navigate("/dashboard");
+        // ✅ NEW
+const res = await fetch("http://localhost:8000/api/v1/users/login", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({ username, password }),
+});
+const data = await res.json();
+if (!res.ok) throw new Error(data.message || "Login failed");
+
+// 👇 Save token to localStorage
+localStorage.setItem("accessToken", data.data.accessToken);
+
+navigate("/dashboard");
+
       } else {
         const formData = new FormData();
         formData.append("fullName", fullName);

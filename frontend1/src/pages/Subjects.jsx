@@ -3,17 +3,29 @@ import { useNavigate } from "react-router-dom";
 
 const BASE = "http://localhost:8000/api/v1";
 
-const getSubjects = () => fetch(`${BASE}/subjects`).then((r) => r.json());
+// ✅ NEW — send token with every request
+const getToken = () => localStorage.getItem("accessToken");
+
+const getSubjects = () =>
+  fetch(`${BASE}/subjects`, {
+    headers: { Authorization: `Bearer ${getToken()}` },  // 👈
+  }).then((r) => r.json());
 
 const addSubjectAPI = (name, icon) =>
   fetch(`${BASE}/subjects`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,  // 👈
+    },
     body: JSON.stringify({ name, icon }),
   }).then((r) => r.json());
 
 const deleteSubjectAPI = (id) =>
-  fetch(`${BASE}/subjects/${id}`, { method: "DELETE" }).then((r) => r.json());
+  fetch(`${BASE}/subjects/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${getToken()}` },  // 👈
+  }).then((r) => r.json());
 
 const icons = ["∑", "⚛", "⬡", "✦", "⚙", "📐", "🧪", "📖", "🌍", "💡"];
 
@@ -25,12 +37,12 @@ function Subjects() {
   const navigate = useNavigate();
 
   // Load subjects from DB on mount
-  useEffect(() => {
-    getSubjects().then((data) => {
-      setSubjects(data);
-      setLoading(false);
-    });
-  }, []);
+useEffect(() => {
+  getSubjects().then((data) => {
+    setSubjects(Array.isArray(data) ? data : []);  // 👈 prevent .map crash
+    setLoading(false);
+  });
+}, []);
 
   const addSubject = async () => {
     if (!subject.trim()) return;

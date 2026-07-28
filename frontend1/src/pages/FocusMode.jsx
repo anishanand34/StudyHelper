@@ -2,14 +2,38 @@ import { useState, useEffect, useRef } from "react";
 
 const BASE = "http://localhost:8000/api/v1";
 
-const getSubjects      = () => fetch(`${BASE}/subjects`).then((r) => r.json());
-const getTodaySessions = () => fetch(`${BASE}/focus`).then((r) => r.json());
-const saveSession      = (body) =>
+// ✅ send token with every request, same as Subjects.jsx
+const getToken = () => localStorage.getItem("accessToken");
+
+const getSubjects = () =>
+  fetch(`${BASE}/subjects`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  }).then((r) => r.json());
+
+const getTodaySessions = () =>
+  fetch(`${BASE}/focus`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  }).then((r) => r.json());
+
+const saveSession = (body) =>
   fetch(`${BASE}/focus`, {
     method:  "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
     body:    JSON.stringify(body),
   }).then((r) => r.json());
+
+// Helper: normalize an API response into an array no matter how it's wrapped
+// (raw array, { subjects: [...] }, { sessions: [...] }, { data: [...] }, etc.)
+const toArray = (data, ...keys) => {
+  if (Array.isArray(data)) return data;
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key];
+  }
+  return [];
+};
 
 function FocusMode() {
   const [subjects,    setSubjects]    = useState([]);
@@ -24,8 +48,18 @@ function FocusMode() {
   const warningTimer  = useRef(null);
 
   useEffect(() => {
-    getSubjects().then((data)      => setSubjects(data));
-    getTodaySessions().then((data) => setSessions(data));
+    getSubjects()
+      .then((data) => setSubjects(toArray(data, "subjects", "data")))
+      .catch((err) => {
+        console.error("Failed to load subjects:", err);
+        setSubjects([]);
+      });
+    getTodaySessions()
+      .then((data) => setSessions(toArray(data, "sessions", "data")))
+      .catch((err) => {
+        console.error("Failed to load sessions:", err);
+        setSessions([]);
+      });
   }, []);
 
   // ── block browser tab close / refresh while running ──
@@ -97,7 +131,9 @@ const handleCapture = (e) => {
     return () => clearInterval(intervalRef.current);
   }, [isRunning, isPaused]);
 
-  const selectedSubject = subjects.find((s) => s._id === selectedId);
+  const selectedSubject = Array.isArray(subjects)
+    ? subjects.find((s) => s._id === selectedId)
+    : undefined;
 
   const formatTime = (secs) => {
     const h = Math.floor(secs / 3600);
@@ -144,7 +180,7 @@ const handleCapture = (e) => {
       });
       if (saved && !saved.error) {
         const fresh = await getTodaySessions();
-        setSessions(fresh);
+        setSessions(toArray(fresh, "sessions", "data"));
       }
     } catch (err) {
       console.error("Failed to save session:", err);
